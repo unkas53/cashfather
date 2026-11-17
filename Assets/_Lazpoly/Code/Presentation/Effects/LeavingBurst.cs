@@ -23,13 +23,14 @@ namespace Lazpoly.Presentation.Effects
         public const float TwinkleSize = 0.035f;
         public const float DustReach = 0.4f;
         public const float DustRise = 0.22f;
-        public const float DustSize = 0.17f;
-        public const float RubbleSize = 0.045f;
+        public const float DustSize = 0.12f;
+        public const float RubbleSize = 0.06f;
         public const float RubbleReach = 0.45f;
         public const float RubbleHop = 0.38f;
 
         public static readonly Color Gold = new Color(1f, 0.82f, 0.3f);
-        public static readonly Color Dust = new Color(0.8f, 0.77f, 0.71f);
+        /// <summary>Dust is authored darker than it should look: a matt ball in the open shows about a quarter lighter on screen (measured, 2026-11-17).</summary>
+        public static readonly Color Dust = new Color(0.62f, 0.58f, 0.5f);
 
         private readonly List<Transform> _pieces = new List<Transform>();
         private readonly List<Material> _materials = new List<Material>();

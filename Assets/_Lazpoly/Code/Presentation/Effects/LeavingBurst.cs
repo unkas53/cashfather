@@ -31,13 +31,13 @@ namespace Lazpoly.Presentation.Effects
         public const float Gravity = 7.5f;
         public const float Bounce = 0.32f;
         public const float Grip = 0.5f;
-        public const float RubbleSeconds = 1.7f;
+        public const float RubbleSeconds = 1.5f;
         public const float RubbleGone = 0.3f;
 
         /// <summary>The longest step the rubble is moved in one go, so a slow frame cannot throw it through the ground.</summary>
         public const float Tick = 1f / 90f;
 
-        public static readonly Color32 Gold = new Color32(255, 208, 84, 255);
+        public static readonly Color32 Gold = new Color32(255, 196, 64, 255);
         public static readonly Color32 PaleGold = new Color32(255, 236, 170, 255);
         public static readonly Color32 Light = new Color32(255, 247, 222, 255);
         public static readonly Color32[] DustTones =
@@ -141,7 +141,7 @@ namespace Lazpoly.Presentation.Effects
                 {
                     Sprite = SoftSprite.Ring, Flat = true, Born = 0.12f * i, Life = 0.6f,
                     From = foot + Vector3.up * (tile * 0.012f), SizeFrom = width * 0.8f, SizeTo = ring,
-                    Color = i == 0 ? Gold : PaleGold, Alpha = i == 0 ? 0.9f : 0.5f, FadeIn = 0.12f, FadeFrom = 0.3f,
+                    Color = i == 0 ? Gold : PaleGold, Alpha = i == 0 ? 1f : 0.65f, FadeIn = 0.12f, FadeFrom = 0.35f,
                 });
             }
 
@@ -153,7 +153,7 @@ namespace Lazpoly.Presentation.Effects
                 {
                     Sprite = SoftSprite.Dot, Born = Roll(0.05f, flash), Life = Roll(0.7f, 1f),
                     From = foot + inside, Drift = new Vector3(Roll(-0.08f, 0.08f), 0f, Roll(-0.08f, 0.08f)) * tile,
-                    Rise = Roll(0.35f, 0.6f) * tile, SizeFrom = Roll(0.09f, 0.13f) * tile, SizeTo = 0.04f * tile,
+                    Rise = Roll(0.35f, 0.6f) * tile, SizeFrom = Roll(0.16f, 0.24f) * tile, SizeTo = 0.07f * tile,
                     Color = i % 3 == 0 ? Gold : PaleGold, Alpha = 0.9f, FadeIn = 0.15f, FadeFrom = 0.45f,
                 });
             }
@@ -161,9 +161,9 @@ namespace Lazpoly.Presentation.Effects
             // Where the last of it goes: a soft flash opening, and one big glint turning in it.
             _particles.Add(new SoftParticle
             {
-                Sprite = SoftSprite.Dot, Born = flash - 0.08f, Life = 0.45f, From = gone,
+                Sprite = SoftSprite.Dot, Born = flash - 0.08f, Life = 0.6f, From = gone,
                 SizeFrom = width * 0.7f, SizeTo = Mathf.Min(tile * 1.5f, width * 2.6f),
-                Color = Light, Alpha = 0.85f, FadeIn = 0.15f, FadeFrom = 0.25f,
+                Color = Light, Alpha = 0.95f, FadeIn = 0.12f, FadeFrom = 0.35f,
             });
             _particles.Add(new SoftParticle
             {
@@ -178,12 +178,12 @@ namespace Lazpoly.Presentation.Effects
                 Vector3 way = Round(i, Glints, 0.3f);
                 float up = Roll(0.15f, 0.9f);
                 Vector3 out3 = (way * Mathf.Sqrt(1f - up * up * 0.6f) + Vector3.up * up).normalized;
-                float size = Roll(0.26f, 0.44f) * tile;
+                float size = Roll(0.34f, 0.56f) * tile;
                 _particles.Add(new SoftParticle
                 {
                     Sprite = SoftSprite.Star, Born = flash + Roll(-0.03f, 0.08f), Life = Roll(0.55f, 0.95f),
                     From = gone, Drift = out3 * (Roll(0.35f, 0.7f) * tile), Fall = Roll(0.1f, 0.22f) * tile,
-                    SizeFrom = size, SizeTo = size * 0.45f,
+                    SizeFrom = size, SizeTo = size * 0.55f,
                     Color = i % 3 == 0 ? Light : i % 3 == 1 ? Gold : PaleGold, Alpha = 1f, FadeIn = 0.08f, FadeFrom = 0.55f,
                     Turn = Roll(-20f, 20f), Spin = Roll(-45f, 45f), Twinkle = 0.45f, Beats = Roll(3f, 5f),
                 });
@@ -223,9 +223,9 @@ namespace Lazpoly.Presentation.Effects
                 Vector3 way = Round(i, Clouds, 0.4f);
                 _particles.Add(new SoftParticle
                 {
-                    Sprite = SoftSprite.Puff, Born = drop + 0.3f * i / Clouds + Roll(0f, 0.04f), Life = Roll(1.2f, 1.7f),
-                    From = foot + way * (width * 0.4f), Drift = way * (Roll(0.2f, 0.42f) * tile), Rise = Roll(0.18f, 0.45f) * tile,
-                    SizeFrom = 0.3f * tile, SizeTo = Roll(0.6f, 0.76f) * tile, Sit = 0.26f,
+                    Sprite = SoftSprite.Puff, Born = drop + 0.3f * i / Clouds + Roll(0f, 0.04f), Life = Roll(0.95f, 1.35f),
+                    From = foot + way * (width * 0.4f), Drift = way * (Roll(0.12f, 0.28f) * tile), Rise = Roll(0.14f, 0.34f) * tile,
+                    SizeFrom = 0.28f * tile, SizeTo = Roll(0.44f, 0.56f) * tile, Sit = 0.26f,
                     Color = DustTones[i % DustTones.Length], Alpha = Roll(0.85f, 0.95f), FadeIn = 0.08f, FadeFrom = 0.4f,
                     Turn = Roll(0f, 360f), Spin = Roll(-50f, 50f),
                 });
@@ -237,10 +237,10 @@ namespace Lazpoly.Presentation.Effects
                 Vector3 inside = new Vector3(Roll(-0.3f, 0.3f) * width, Roll(0.2f, 0.8f) * height, Roll(-0.3f, 0.3f) * width);
                 _particles.Add(new SoftParticle
                 {
-                    Sprite = SoftSprite.Puff, Born = drop + Roll(0.05f, 0.4f), Life = Roll(1.1f, 1.5f),
+                    Sprite = SoftSprite.Puff, Born = drop + Roll(0.05f, 0.4f), Life = Roll(0.9f, 1.25f),
                     From = foot + inside, Drift = new Vector3(Roll(-0.1f, 0.1f), 0f, Roll(-0.1f, 0.1f)) * tile,
-                    Rise = Roll(0.25f, 0.5f) * tile,
-                    SizeFrom = 0.34f * tile, SizeTo = Roll(0.6f, 0.74f) * tile,
+                    Rise = Roll(0.2f, 0.38f) * tile,
+                    SizeFrom = 0.3f * tile, SizeTo = Roll(0.44f, 0.54f) * tile,
                     Color = DustTones[(i + 1) % DustTones.Length], Alpha = Roll(0.8f, 0.9f), FadeIn = 0.12f, FadeFrom = 0.4f,
                     Turn = Roll(0f, 360f), Spin = Roll(-40f, 40f),
                 });
@@ -256,7 +256,7 @@ namespace Lazpoly.Presentation.Effects
                 {
                     Sprite = SoftSprite.Dot, Born = drop + Roll(0f, 0.3f), Life = Roll(0.5f, 0.8f),
                     From = foot + Vector3.up * start, Drift = way * (Roll(0.4f, 0.75f) * tile) + Vector3.up * thrown,
-                    Fall = start + thrown - tile * 0.02f, SizeFrom = 0.06f * tile, SizeTo = 0.035f * tile,
+                    Fall = start + thrown - tile * 0.02f, SizeFrom = 0.09f * tile, SizeTo = 0.05f * tile,
                     Color = GritTone, Alpha = 0.9f, FadeIn = 0.05f, FadeFrom = 0.8f,
                 });
             }
@@ -266,10 +266,10 @@ namespace Lazpoly.Presentation.Effects
             {
                 _particles.Add(new SoftParticle
                 {
-                    Sprite = SoftSprite.Puff, Born = drop + 0.45f + 0.15f * i, Life = 1.5f,
-                    From = foot + new Vector3(Roll(-0.15f, 0.15f), 0.12f, Roll(-0.15f, 0.15f)) * tile, Rise = 0.22f * tile,
-                    SizeFrom = 0.5f * tile, SizeTo = 0.9f * tile, Sit = 0.2f,
-                    Color = DustTones[2], Alpha = 0.3f, FadeIn = 0.3f, FadeFrom = 0.45f, Turn = Roll(0f, 360f), Spin = 25f,
+                    Sprite = SoftSprite.Puff, Born = drop + 0.45f + 0.15f * i, Life = 1.3f,
+                    From = foot + new Vector3(Roll(-0.1f, 0.1f), 0.1f, Roll(-0.1f, 0.1f)) * tile, Rise = 0.18f * tile,
+                    SizeFrom = 0.4f * tile, SizeTo = 0.62f * tile, Sit = 0.2f,
+                    Color = DustTones[2], Alpha = 0.22f, FadeIn = 0.3f, FadeFrom = 0.45f, Turn = Roll(0f, 360f), Spin = 25f,
                 });
             }
 
@@ -279,7 +279,7 @@ namespace Lazpoly.Presentation.Effects
             for (int i = 0; i < Rubble; i++)
             {
                 Vector3 way = Round(i, Rubble, 1.1f);
-                float size = Roll(0.035f, 0.075f) * tile;
+                float size = Roll(0.045f, 0.09f) * tile;
                 var chunk = new Chunk
                 {
                     Piece = Block(block, tones, i % tones.Length),

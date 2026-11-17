@@ -203,7 +203,7 @@ namespace Lazpoly.Presentation.Tests
             Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Dot, 0f, 0f), 1e-4f, "a glow is brightest in the middle");
             Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Star, 0f, 0f), 1e-4f, "a glint has a bright heart");
             Assert.Less(SoftSprites.Alpha(SoftSprite.Ring, 0f, 0f), 0.01f, "a ring is open in the middle");
-            Assert.Greater(SoftSprites.Alpha(SoftSprite.Ring, 0.8f, 0f), 0.95f, "a ring is solid on its line");
+            Assert.Greater(SoftSprites.Alpha(SoftSprite.Ring, 0.78f, 0f), 0.95f, "a ring is solid on its line");
             Assert.Greater(SoftSprites.Alpha(SoftSprite.Star, 0.5f, 0f), 0.5f, "a glint has rays along its cross");
             Assert.Greater(SoftSprites.Alpha(SoftSprite.Star, 0f, -0.5f), 0.5f, "a glint has rays along its cross");
             Assert.Less(SoftSprites.Alpha(SoftSprite.Star, 0.5f, 0.3f), 0.01f, "a glint is clear between its rays");

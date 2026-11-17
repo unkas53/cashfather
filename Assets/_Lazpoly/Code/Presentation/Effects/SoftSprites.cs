@@ -64,7 +64,7 @@ namespace Lazpoly.Presentation.Effects
 
                 case SoftSprite.Ring:
                 {
-                    float off = (r - 0.8f) / 0.07f;
+                    float off = (r - 0.78f) / 0.1f;
                     alpha = Mathf.Exp(-off * off);
                     break;
                 }

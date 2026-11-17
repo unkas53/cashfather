@@ -1,5 +1,7 @@
+using Lazpoly.Presentation.Game;
 using Lazpoly.Presentation.Models;
 using Lazpoly.Presentation.Tabletop;
+using Lazpoly.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -404,40 +406,41 @@ namespace Lazpoly.Presentation.Tests
             Assert.AreEqual(size, BoardCameraFraming.OrthographicSize(half, thickness, pitch, width, height, reserved), "the framing is deterministic");
         }
 
-        [TestCase(1920f, 1080f, 412f, 260f)]
-        [TestCase(1280f, 1024f, 330f, 320f)]
-        [TestCase(3440f, 1440f, 549f, 200f)]
-        public void CameraLiftsTheBoardClearOfTheBottomPanel(float width, float height, float reserved, float bottom)
+        [TestCase(1920f, 1080f)]
+        [TestCase(1280f, 720f)]
+        [TestCase(1280f, 1024f)]
+        [TestCase(1600f, 1200f)]
+        [TestCase(2560f, 1600f)]
+        [TestCase(3440f, 1440f)]
+        public void ThePickCardStandsOverTheLawnAndCoversNoSquare(float width, float height)
         {
-            const float half = 8.1f, thickness = 0.6f, pitch = BoardCameraRig.Pitch, yaw = BoardCameraRig.BaseYaw;
-            var center = new Vector3(0f, 0f, 0f);
-            float plain = BoardCameraFraming.OrthographicSize(half, thickness, pitch, width, height, reserved);
-            float size = BoardCameraFraming.OrthographicSize(half, thickness, pitch, width, height, reserved, bottom);
-            // A board held by the screen's width keeps its size and only moves up; one held by the height zooms out.
-            Assert.GreaterOrEqual(size, plain, "the view never zooms in for the panel");
-            Vector3 aim = BoardCameraFraming.AimAbovePanel(BoardCameraFraming.Aim(center, thickness), pitch, yaw, size, height, bottom);
-            Assert.AreEqual(BoardCameraFraming.Aim(center, thickness), BoardCameraFraming.AimAbovePanel(BoardCameraFraming.Aim(center, thickness), pitch, yaw, size, height, 0f), "no panel, no lift");
-            // Across, the free width is the screen's width less the side panels, as a multiple of the view's half height.
-            float across = width / height * BoardCameraFraming.FreeFraction(width, reserved);
-            float panelTop = -1f + 2f * bottom / height;
+            // The owner's wish (2026-11-17): a pick on the board no longer draws the view back for a panel at the bottom; its
+            // card stands in the middle of the screen instead, so it has to stay inside the squares' inner edge there.
+            const float pitch = BoardCameraRig.Pitch, yaw = BoardCameraRig.BaseYaw;
+            var layout = new BoardLayout(32, BoardView.HalfSizeFor(32), BoardView.DepthRatio);
+            float scale = UiLayout.CanvasScale((int)width, (int)height);
+            float size = BoardCameraFraming.OrthographicSize(layout.OuterHalf, BoardView.PlateThickness, pitch, width, height, UiLayout.ReservedSidePixels(scale));
+            Vector3 aim = BoardCameraFraming.Aim(Vector3.zero, BoardView.PlateThickness);
+            float inner = layout.HalfSize - layout.Depth / 2f;
 
-            float maxX = 0f, minY = float.MaxValue, maxY = float.MinValue;
+            // The inner square is a diamond on the screen: its middle, and how far its corners reach across and up
+            // (in half view heights, x and y alike).
+            Vector2 middle = BoardCameraFraming.Project(new Vector3(0f, BoardView.LawnHeight, 0f), aim, pitch, yaw, size, 1f);
+            float across = 0f, up = 0f;
             for (int corner = 0; corner < 4; corner++)
-            for (int level = 0; level < 3; level++)
             {
-                var point = center + new Vector3(corner % 2 == 0 ? -half : half, level == 0 ? 0f : level == 1 ? -thickness : BoardCameraFraming.Headroom, corner < 2 ? -half : half);
-                Vector2 seen = BoardCameraFraming.Project(point, aim, pitch, yaw, size, across);
-                maxX = Mathf.Max(maxX, Mathf.Abs(seen.x));
-                minY = Mathf.Min(minY, seen.y);
-                maxY = Mathf.Max(maxY, seen.y);
+                var point = new Vector3(corner % 2 == 0 ? -inner : inner, BoardView.LawnHeight, corner < 2 ? -inner : inner);
+                Vector2 seen = BoardCameraFraming.Project(point, aim, pitch, yaw, size, 1f) - middle;
+                across = Mathf.Max(across, Mathf.Abs(seen.x));
+                up = Mathf.Max(up, Mathf.Abs(seen.y));
             }
 
-            Assert.LessOrEqual(maxX, 1f, "A corner is under a side panel.");
-            Assert.GreaterOrEqual(minY, panelTop, "The near corner is under the bottom panel.");
-            Assert.LessOrEqual(maxY, 1f, "What stands on the far corner is above the screen.");
-            Assert.AreEqual((panelTop + 1f) / 2f, (minY + maxY) / 2f, 0.02f, "The board is not centred in the free area above the panel.");
-            float freeHalfHeight = (1f - panelTop) / 2f;
-            Assert.Greater(Mathf.Max(maxX, (maxY - minY) / 2f / freeHalfHeight), BoardCameraFraming.Fill - 0.02f, "The board could be bigger.");
+            // The card is in the screen's middle; its corners in the same measure.
+            float halfWidth = BoardPickView.CardWidth * scale / height, halfHeight = BoardPickView.CardHeight * scale / height;
+            float reach = (halfWidth + Mathf.Abs(middle.x)) / across + (halfHeight + Mathf.Abs(middle.y)) / up;
+            Assert.LessOrEqual(reach, 1f, "The card's corners lie on the squares.");
+            if (width / height > 1.7f) Assert.LessOrEqual(reach, BoardView.LawnShare, "On a wide screen the card stays on the grass, clear of the road.");
+            Assert.AreEqual(216f, BoardPickView.CardHeight, 0.01f, "the band, the line and the buttons with their gaps");
         }
 
         [Test]

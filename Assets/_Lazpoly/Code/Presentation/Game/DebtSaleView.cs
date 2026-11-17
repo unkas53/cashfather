@@ -315,8 +315,8 @@ namespace Lazpoly.Presentation.Game
             return tag;
         }
 
-        /// <summary>A thin line round a plate or a box, drawn over its ground; it takes no clicks and no room.</summary>
-        private static void Edge(RectTransform around, Color color)
+        /// <summary>A thin line round a plate or a box, drawn over its ground; it takes no clicks and no room (the pick screen's plates use it too).</summary>
+        public static void Edge(RectTransform around, Color color)
         {
             RectTransform ring = UiRoot.Stretch(around, "Edge");
             ring.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
@@ -328,7 +328,7 @@ namespace Lazpoly.Presentation.Game
         }
 
         /// <summary>A square turned on its corner under the plate's middle, its tip on the town, so each plate plainly belongs to one town.</summary>
-        private static void AddPointer(RectTransform tag, Color fill)
+        public static void AddPointer(RectTransform tag, Color fill)
         {
             RectTransform pointer = UiRoot.Rect(tag, "Pointer", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), Vector2.zero, Vector2.zero);
             pointer.sizeDelta = new Vector2(PointerSize, PointerSize);

@@ -5,10 +5,10 @@ namespace Lazpoly.Presentation.Tabletop
 {
     /// <summary>
     /// How large the orthographic view must be so the whole board plate fills the screen area between
-    /// the HUD's side panels and above its bottom panel. Seen corner-on the square board is a diamond;
-    /// its width is the diagonal and its height the diagonal foreshortened by the camera's pitch, plus
-    /// the plate's edge below it. When the bottom panel is up the view also aims lower, so the board
-    /// sits in the middle of what is left above the panel.
+    /// the HUD's side reserves. Seen corner-on the square board is a diamond; its width is the diagonal
+    /// and its height the diagonal foreshortened by the camera's pitch, plus the plate's edge below it.
+    /// The framing depends on the screen alone: nothing the game shows moves it (the owner's wish,
+    /// 2026-11-17; a panel at the bottom once lifted the board and drew the view back).
     /// </summary>
     public static class BoardCameraFraming
     {
@@ -24,10 +24,9 @@ namespace Lazpoly.Presentation.Tabletop
         /// <param name="screenWidth">Screen width in pixels.</param>
         /// <param name="screenHeight">Screen height in pixels.</param>
         /// <param name="reservedSidePixels">Pixels covered by panels on each side.</param>
-        /// <param name="reservedBottomPixels">Pixels covered by the panel along the bottom.</param>
         /// <returns>The camera's orthographic size: half the view's height in world units.</returns>
         public static float OrthographicSize(float boardHalfExtent, float plateThickness, float pitchDegrees,
-            float screenWidth, float screenHeight, float reservedSidePixels, float reservedBottomPixels = 0f)
+            float screenWidth, float screenHeight, float reservedSidePixels)
         {
             if (screenWidth <= 0f || screenHeight <= 0f) throw new ArgumentOutOfRangeException(nameof(screenWidth));
             if (boardHalfExtent <= 0f) throw new ArgumentOutOfRangeException(nameof(boardHalfExtent));
@@ -36,37 +35,19 @@ namespace Lazpoly.Presentation.Tabletop
             float halfDiagonal = boardHalfExtent * Mathf.Sqrt(2f);
             // Top to bottom on the screen: the headroom over the far corner, the diamond, the plate's edge under the near corner.
             float halfHeight = halfDiagonal * Mathf.Sin(pitch) + (plateThickness + Headroom) * Mathf.Cos(pitch) / 2f;
-            float freeAspect = FreeAspect(screenWidth, screenHeight, reservedSidePixels, reservedBottomPixels);
-            float freeHeight = FreeHeightFraction(screenHeight, reservedBottomPixels);
-            return Mathf.Max(halfHeight, halfDiagonal / freeAspect) / (freeHeight * Fill);
+            float freeAspect = FreeAspect(screenWidth, screenHeight, reservedSidePixels);
+            return Mathf.Max(halfHeight, halfDiagonal / freeAspect) / Fill;
         }
 
         /// <summary>Where the camera looks: between the plate's edge below the surface and the headroom above it, so both count in the centring.</summary>
         public static Vector3 Aim(Vector3 boardCenter, float plateThickness) => boardCenter + Vector3.up * ((Headroom - plateThickness) / 2f);
 
-        /// <summary>
-        /// Where the camera looks when a panel covers the bottom of the screen: below the board's aim by
-        /// half the panel, so the board is centred in the free area above it. Moving the aim down the
-        /// camera's own up direction moves the picture straight up the screen.
-        /// </summary>
-        public static Vector3 AimAbovePanel(Vector3 aim, float pitchDegrees, float yawDegrees, float orthographicSize, float screenHeight, float reservedBottomPixels)
-        {
-            if (reservedBottomPixels <= 0f || screenHeight <= 0f) return aim;
-            Vector3 up = Quaternion.Euler(pitchDegrees, yawDegrees, 0f) * Vector3.up;
-            // The view is 2 * size tall over screenHeight pixels; the free area's middle is half the panel above the screen's.
-            return aim - up * (orthographicSize * reservedBottomPixels / screenHeight);
-        }
-
-        /// <summary>Width over height of the free area between the panels and above the bottom one.</summary>
-        public static float FreeAspect(float screenWidth, float screenHeight, float reservedSidePixels, float reservedBottomPixels = 0f) =>
-            screenWidth / screenHeight * FreeFraction(screenWidth, reservedSidePixels) / FreeHeightFraction(screenHeight, reservedBottomPixels);
+        /// <summary>Width over height of the free area between the side reserves.</summary>
+        public static float FreeAspect(float screenWidth, float screenHeight, float reservedSidePixels) =>
+            screenWidth / screenHeight * FreeFraction(screenWidth, reservedSidePixels);
 
         public static float FreeFraction(float screenWidth, float reservedSidePixels) =>
             Mathf.Max(0.2f, 1f - 2f * reservedSidePixels / screenWidth);
-
-        /// <summary>The share of the screen's height above the bottom panel.</summary>
-        public static float FreeHeightFraction(float screenHeight, float reservedBottomPixels) =>
-            Mathf.Max(0.2f, 1f - reservedBottomPixels / screenHeight);
 
         /// <summary>
         /// Where a world point lands in the orthographic view: x is -1..1 across a free width of

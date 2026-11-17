@@ -833,7 +833,7 @@ namespace Lazpoly.Presentation.Tests
         }
 
         [Test]
-        public void ThePeekNeverPullsTheViewOffTheBoard()
+        public void TheHeldViewNeverLeavesTheBoard()
         {
             var center = new Vector3(1f, 0f, 2f);
             Vector3 inside = BoardCameraRig.ClampToBoard(new Vector3(3f, 0f, 1f), center, 6f);
@@ -841,13 +841,9 @@ namespace Lazpoly.Presentation.Tests
             Vector3 clamped = BoardCameraRig.ClampToBoard(new Vector3(40f, 0f, -50f), center, 6f);
             Assert.AreEqual(new Vector3(7f, 0f, -4f), clamped);
 
+            // A pinned square no longer pulls the view towards itself (the owner's wish, 2026-11-17): only the screenshot
+            // presets move it.
             var aim = new Vector3(1f, -0.3f, 3f);
-            Assert.AreEqual(aim, BoardCameraRig.PeekAim(aim, null, center, 6f), "nothing pinned, nothing moves");
-            Vector3 peeked = BoardCameraRig.PeekAim(aim, new Vector3(7f, 0.2f, 3f), center, 6f);
-            Assert.That(peeked.x, Is.EqualTo(aim.x + 6f * BoardCameraRig.PeekAmount).Within(1e-4f), "slides a fraction of the way");
-            Assert.AreEqual(aim.y, peeked.y, "the aim keeps its height");
-            Vector3 farPeek = BoardCameraRig.PeekAim(aim, new Vector3(100f, 0f, 3f), center, 6f);
-            Assert.That(Vector3.Distance(farPeek, peeked), Is.LessThan(1e-4f), "a point off the board counts as its edge");
 
             // Held on a point (the screenshot presets): right on it, at the aim's own height, never off the board.
             Assert.AreEqual(new Vector3(5f, aim.y, -1f), BoardCameraRig.HeldAim(aim, new Vector3(5f, 0.9f, -1f), center, 6f));

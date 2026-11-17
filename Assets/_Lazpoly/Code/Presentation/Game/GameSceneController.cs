@@ -77,9 +77,6 @@ namespace Lazpoly.Presentation.Game
         private bool _boughtOnLanding;
         private TradeOffer _shownOffer;
 
-        /// <summary>The bottom panel's height is rounded up to this many pixels before the camera makes room, so a line more or less in the panel does not nudge the view.</summary>
-        private const float BottomStep = 40f;
-
         private BoardData _data;
         private IGameSession _session;
         private HostSession _host;
@@ -114,7 +111,6 @@ namespace Lazpoly.Presentation.Game
         private int _framedWidth;
         private int _framedHeight;
         private float _framedReserve;
-        private float _framedBottom;
         private float _labelYaw = BoardCameraRig.BaseYaw;
         private GameHud _hud;
         private int _screenshotPreset = -1;
@@ -542,25 +538,22 @@ namespace Lazpoly.Presentation.Game
                 foreach (PawnView pawn in _pawns.Values) pawn.FaceCamera(_labelYaw);
             }
 
+            // The framing follows the screen only (its size, the interface's scale): nothing the game asks moves the view.
             float reserved = _hud.ReservedSidePixels;
-            float bottom = Mathf.Ceil(_hud.ReservedBottomPixels / BottomStep) * BottomStep;
-            if (Screen.width == _framedWidth && Screen.height == _framedHeight && Mathf.Approximately(reserved, _framedReserve) && Mathf.Approximately(bottom, _framedBottom)) return;
-            FrameBoard(reserved, bottom);
+            if (Screen.width == _framedWidth && Screen.height == _framedHeight && Mathf.Approximately(reserved, _framedReserve)) return;
+            FrameBoard(reserved);
         }
 
-        /// <summary>Frames the board in the screen area the panels leave free; the rig slides there over a few frames.</summary>
-        private void FrameBoard(float reservedSidePixels, float reservedBottomPixels)
+        /// <summary>Frames the board in the screen area between the side reserves; the rig slides there over a few frames.</summary>
+        private void FrameBoard(float reservedSidePixels)
         {
             if (CameraRig == null) return;
             _framedWidth = Screen.width;
             _framedHeight = Screen.height;
             _framedReserve = reservedSidePixels;
-            _framedBottom = reservedBottomPixels;
             float size = BoardCameraFraming.OrthographicSize(_board.HalfExtent, BoardView.PlateThickness, BoardCameraRig.Pitch,
-                Screen.width, Screen.height, reservedSidePixels, reservedBottomPixels);
-            Vector3 aim = BoardCameraFraming.Aim(_board.transform.position, BoardView.PlateThickness);
-            aim = BoardCameraFraming.AimAbovePanel(aim, BoardCameraRig.Pitch, CameraRig.Yaw, size, Screen.height, reservedBottomPixels);
-            CameraRig.SetBase(_board.transform.position, aim, size, _board.HalfExtent);
+                Screen.width, Screen.height, reservedSidePixels);
+            CameraRig.SetBase(_board.transform.position, BoardCameraFraming.Aim(_board.transform.position, BoardView.PlateThickness), size, _board.HalfExtent);
         }
 
         private void OnDestroy()
@@ -1073,13 +1066,41 @@ namespace Lazpoly.Presentation.Game
             // The closest view, on the person's figure: how the Meshy models look when the wheel brings them near.
             if (CameraRig != null && _pawns.TryGetValue(person, out PawnView near) && near != null)
             {
-                CameraRig.Peek(near.transform.position);
+                CameraRig.Hold(near.transform.position);
                 CameraRig.SetView(BoardCameraRig.BaseYaw, BoardCameraRig.MinZoom);
                 yield return ScreenTour.Take("masa-yakin");
-                CameraRig.Peek(null);
+                CameraRig.Hold(null);
                 CameraRig.ResetView();
                 yield return ScreenTour.Until(() => false, 1f);
             }
+
+            // The pick screen (2026-11-17), staged on the person's own turn: a ride from the bus station as it opens and
+            // with a square half the board away picked, then the cup's with one of the person's towns picked (or none
+            // to pick). The view stays as it is: no panel at the bottom, the card over the lawn.
+            if (_board.StationSquare >= 0)
+            {
+                hud.StagePick(GamePhase.AwaitingTravelDecision, _board.StationSquare);
+                yield return ScreenTour.Take("otogar-secim");
+                int far = (_board.StationSquare + _session.Board.Count / 2 - 3) % _session.Board.Count;
+                if (GameRules.IsRideDestination(_session.Board, _session.State, _session.State.FindPlayer(person), far)) hud.PinSquare(far);
+                yield return ScreenTour.Take("otogar-secildi");
+            }
+
+            int cupCorner = -1, ownTown = -1;
+            for (int i = 0; i < _session.Board.Count; i++)
+            {
+                if (_session.Board[i].Type == SquareType.Cup && cupCorner < 0) cupCorner = i;
+                if (ownTown < 0 && GameRules.CanHoldCup(_session.Board, i) && _session.State.GetOwner(i) == person) ownTown = i;
+            }
+
+            if (cupCorner >= 0)
+            {
+                hud.StagePick(GamePhase.AwaitingCupChoice, cupCorner);
+                if (ownTown >= 0) hud.PinSquare(ownTown);
+                yield return ScreenTour.Take("kupa-secim");
+            }
+
+            hud.StagePick(null);
 
             // The money hatches from near (2026-11-12): the person's own shut, then standing open, then with a sum going down
             // and a sum coming up written in front of it; and two hatches' sums in the whole view.

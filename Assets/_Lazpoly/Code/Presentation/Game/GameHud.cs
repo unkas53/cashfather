@@ -48,7 +48,6 @@ namespace Lazpoly.Presentation.Game
         private readonly UiView[] _corners = new UiView[4];
         private UiView _turn;
         private RectTransform _turnPanel;
-        private RectTransform _bottom;
         private UiView _ticker;
         private UiView _logWindow;
         private GameObject _logLayer;
@@ -129,6 +128,13 @@ namespace Lazpoly.Presentation.Game
         private int _buildCardDismissed;
         private PropertyCard _propertyCard;
         private DebtSaleView _debtSale;
+        private BoardPickView _pick;
+        private UiView _diceWindow;
+        private GameObject _diceLayer;
+
+        /// <summary>A pick the screen tour shows without the game asking (a ride's or the cup's phase; null: none), and the square that asks.</summary>
+        private GamePhase? _stagedPick;
+        private int _stagedPickFrom = NoSquare;
         private BuildingPreview _preview;
 
         private const int NoSquare = -1;
@@ -158,16 +164,6 @@ namespace Lazpoly.Presentation.Game
         public float ReservedTopPixels =>
             _bannerGroup != null && _bannerGroup.alpha > 0f ? (BannerBottom + 8f) * (_canvas != null ? _canvas.scaleFactor : 1f) : 0f;
 
-        /// <summary>Whether the decision panel at the bottom has something to show.</summary>
-        public bool TurnPanelShown => _turnPanel != null && _turnPanel.gameObject.activeSelf;
-
-        /// <summary>
-        /// Screen pixels the bottom stack covers while the decision panel is up, margin included, so the
-        /// camera can lift the board clear of it; nothing while the stack holds only the hint and the strip.
-        /// </summary>
-        public float ReservedBottomPixels =>
-            TurnPanelShown && _bottom != null ? (_bottom.rect.height + 2f * Margin) * (_canvas != null ? _canvas.scaleFactor : 1f) : 0f;
-
         /// <summary>Whether the event log window is open.</summary>
         public bool LogOpen => _logLayer != null && _logLayer.activeSelf;
 
@@ -188,6 +184,24 @@ namespace Lazpoly.Presentation.Game
 
         /// <summary>The sale screen of a person who cannot pay (the card and the tags over their towns).</summary>
         public DebtSaleView DebtSale => _debtSale;
+
+        /// <summary>The pick screen of a person who chooses a square on the board: a ride's destination, the cup's town, a card's.</summary>
+        public BoardPickView Pick => _pick;
+
+        /// <summary>Whether the card with the lookout's two rolls is open for the person here.</summary>
+        public bool DiceCardOpen => _diceLayer != null && _diceLayer.activeSelf;
+
+        /// <summary>
+        /// Shows the pick screen of a ride (<see cref="GamePhase.AwaitingTravelDecision"/>) or of the cup
+        /// (<see cref="GamePhase.AwaitingCupChoice"/>) as if the game asked at the square <paramref name="from"/> (the
+        /// screen tour); null puts it away.
+        /// </summary>
+        public void StagePick(GamePhase? phase, int from = NoSquare)
+        {
+            _stagedPick = phase;
+            _stagedPickFrom = from;
+            _pinnedSquare = NoSquare;
+        }
 
         /// <summary>Whether the pause menu is open.</summary>
         public bool PauseOpen => _pauseLayer != null && _pauseLayer.activeSelf;
@@ -264,14 +278,15 @@ namespace Lazpoly.Presentation.Game
                 _corners[corner] = new UiView(new UiBuilder(rect), ui => RenderCorner(ui, index));
             }
 
-            // The stack at the bottom centre: the hint on top, the decision panel, and the event strip at the very bottom.
+            // The stack at the bottom centre: the hint on top, the panel that says why the game stopped or a move was
+            // refused, and the event strip at the very bottom. No decision is asked down here (the owner's wish,
+            // 2026-11-17), so the view never has to make room for it.
             RectTransform bottom = UiRoot.Rect(_canvas.transform, "Bottom", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), Vector2.zero, Vector2.zero);
             bottom.pivot = new Vector2(0.5f, 0f);
             bottom.anchoredPosition = new Vector2(0f, Margin);
             bottom.sizeDelta = new Vector2(BottomWidth, 0f);
             UiBuilder.AddColumnLayout(bottom.gameObject, 0, UiTheme.Spacing);
             bottom.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            _bottom = bottom;
             BuildTipPanel(bottom);
             _turnPanel = UiRoot.Rect(bottom, "Turn", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
             UiRoot.Panel(_turnPanel);
@@ -284,6 +299,8 @@ namespace Lazpoly.Presentation.Game
 
             // A debt's sale screen: its card in the middle and a tag over each of the player's towns.
             _debtSale = new DebtSaleView(_canvas.transform, _controller);
+            // A pick on the board (a ride, the cup, a card's town): its card over the lawn and a name plate over the square.
+            _pick = new BoardPickView(_canvas.transform, _controller);
 
             // Frame rate and memory behind F3, in the strip under the turn banner.
             RectTransform perf = UiRoot.Rect(_canvas.transform, "Perf Overlay", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -342,6 +359,8 @@ namespace Lazpoly.Presentation.Game
             _buildWindow = new UiView(UiRoot.Modal(_canvas.transform, "Build Card", UiLayout.PropertyCardWidth, out _buildLayer), RenderBuildCard);
             // A jailed turn's choice opens in the middle of the screen (the owner's wish, Faz 23).
             _jailWindow = new UiView(UiRoot.Modal(_canvas.transform, "Jail Card", UiLayout.WindowWidth, out _jailLayer), RenderJailCard);
+            // The lookout's two rolls are a card in the middle as well (2026-11-17: nothing is asked at the bottom any more).
+            _diceWindow = new UiView(UiRoot.Modal(_canvas.transform, "Dice Card", UiLayout.WindowWidth, out _diceLayer), RenderDiceCard);
             // A trade offer's answer opens in the middle too, for whoever here sent or received it (Faz 23).
             _offerWindow = new UiView(UiRoot.Modal(_canvas.transform, "Trade Offer", UiLayout.WindowWidth, out _offerLayer), RenderOffer);
             // The strategic cards (Faz 30): the hand, letting a fifth card go, and the rent shield's question, all in the middle.
@@ -371,6 +390,7 @@ namespace Lazpoly.Presentation.Game
             _cityLayer.SetActive(false);
             _buildLayer.SetActive(false);
             _jailLayer.SetActive(false);
+            _diceLayer.SetActive(false);
             _offerLayer.SetActive(false);
             _handLayer.SetActive(false);
             _discardLayer.SetActive(false);
@@ -904,13 +924,13 @@ namespace Lazpoly.Presentation.Game
             int revision = _controller.Revision;
 
             bool tradeOpen = state != null && !_controller.EndReason.HasValue && _trade.KeepOpen(state);
-            // The pinned square is the destination of a ride, so the decision panel follows it too.
-            // While a debt is sold on the board, the town under the mouse is named with its price on the panel.
+            // The pinned square is the pick of a ride, the cup or a card, and the town under the mouse counts while a debt
+            // is sold on the board.
             int key = HashCode.Combine(revision, _controller.IsBusy, _controller.EndReason, tradeOpen, _pinnedSquare,
                 SellingOnBoard(state) ? _hoveredSquare : NoSquare, _cards.Aiming(state), _cards.Open);
             foreach (UiView corner in _corners) corner.Refresh(key);
             _turn.Refresh(key);
-            // The panel shows only while there is something to decide or to say.
+            // The panel shows only while there is something to say.
             bool turnShown = _turnPanel.childCount > 0;
             if (_turnPanel.gameObject.activeSelf != turnShown) _turnPanel.gameObject.SetActive(turnShown);
             _ticker.Refresh(key);
@@ -921,6 +941,7 @@ namespace Lazpoly.Presentation.Game
             UpdateSquareCard(state, revision);
             bool selling = state != null && SellingOnBoard(state);
             _debtSale.Update(state, selling ? BoardChoices(state) : null, selling && !_controller.IsBusy && !_controller.EndReason.HasValue);
+            UpdatePick(state);
             UpdateBanner(state);
             UpdateCardPopup();
             UpdateTradePopup();
@@ -946,6 +967,7 @@ namespace Lazpoly.Presentation.Game
             bool aiming = _cards.Aiming(state) != CardHand.NoCard;
             bool jailOpen = !tradeOpen && !aiming && WaitsOnPersonHere(state, GamePhase.AwaitingJailDecision);
             SetLayer(_jailLayer, _jailWindow, jailOpen, revision);
+            SetLayer(_diceLayer, _diceWindow, !tradeOpen && !aiming && WaitsOnPersonHere(state, GamePhase.AwaitingDiceChoice), revision);
             bool buildOpen = !tradeOpen && !cityOpen && OffersBuildCard(state);
             SetLayer(_buildLayer, _buildWindow, buildOpen, revision);
             if (_cards.Open && (tradeOpen || state == null || state.Phase == GamePhase.GameOver || _controller.EndReason.HasValue)) _cards.Open = false;
@@ -959,7 +981,7 @@ namespace Lazpoly.Presentation.Game
             SetLayer(_endLayer, _endWindow, ended, revision);
             SetLayer(_logLayer, _logWindow, _logLayer.activeSelf, revision);
             bool windowOpen = tradeOpen || _pauseLayer.activeSelf || _settingsLayer.activeSelf || _howToLayer.activeSelf || ended || _logLayer.activeSelf ||
-                              _squareLayer.activeSelf || _handLayer.activeSelf || aiming;
+                              _squareLayer.activeSelf || _handLayer.activeSelf || aiming || _pick.Shown;
             UpdateRollPrompt(state, windowOpen || CenterCardUp);
         }
 
@@ -1034,9 +1056,6 @@ namespace Lazpoly.Presentation.Game
             bool overInterface = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
             _hoveredSquare = !overInterface && board.TryGetSquare(camera.ScreenPointToRay(Input.mousePosition), out int square) ? square : NoSquare;
             if (!overInterface && Input.GetMouseButtonDown(0)) ClickSquare(state, _hoveredSquare);
-            // While a ride's destination (or the cup's town) is being chosen the view leans a little towards the chosen square.
-            bool choosing = ChoosingRide(state) || ChoosingCup(state) || _cards.Aiming(state) != CardHand.NoCard;
-            _controller.CameraRig?.Peek(choosing && _pinnedSquare != NoSquare ? board.SquarePosition(_pinnedSquare) : (Vector3?)null);
         }
 
         /// <summary>What a click on a square (or on the empty table, <see cref="NoSquare"/>) does now.</summary>
@@ -1059,10 +1078,10 @@ namespace Lazpoly.Presentation.Game
         }
 
         /// <summary>True while the person here picks where to ride: a click then chooses the square instead of opening its card.</summary>
-        private bool ChoosingRide(GameState state) => WaitsOnPersonHere(state, GamePhase.AwaitingTravelDecision);
+        private bool ChoosingRide(GameState state) => _stagedPick == GamePhase.AwaitingTravelDecision || WaitsOnPersonHere(state, GamePhase.AwaitingTravelDecision);
 
         /// <summary>True while the person here picks the town to bring the champions' cup to: a click then chooses one of their towns.</summary>
-        private bool ChoosingCup(GameState state) => WaitsOnPersonHere(state, GamePhase.AwaitingCupChoice);
+        private bool ChoosingCup(GameState state) => _stagedPick == GamePhase.AwaitingCupChoice || WaitsOnPersonHere(state, GamePhase.AwaitingCupChoice);
 
         /// <summary>True while the person here covers a debt: their towns are ringed on the board and a click sells one.</summary>
         public bool SellingOnBoard(GameState state) =>
@@ -1415,47 +1434,15 @@ namespace Lazpoly.Presentation.Game
                 UiTextStyle.Small, UiTheme.Muted);
         }
 
+        /// <summary>
+        /// Every decision has a card of its own (rolling its big button, buying the city card, a pick on the board the
+        /// pick screen, the rest a card in the middle), so the panel only says why a move was refused.
+        /// </summary>
         private void RenderActions(UiBuilder ui, GameState state)
         {
             // The end has its own window (the winner, standings, main menu); the bottom stays empty (the owner's wish, Faz 23).
             if (state.Phase == GamePhase.GameOver || _controller.IsBusy) return;
-
-            // A trade answer comes from a player other than the one on turn. Whoever here sent or received the offer
-            // answers it on the card in the middle (OffersAnswerHere); a trade between others shows as their speech
-            // bubbles and a result card, not down here (the owner's wish, Faz 23).
-            if (state.Phase != GamePhase.AwaitingTradeResponse) RenderTurnActions(ui, state);
-
             if (_controller.LastRejection != null) ui.Notice(_controller.LastRejection);
-        }
-
-        /// <summary>The decisions that are not a card of their own; rolling has the big button (the turn ends by itself), buying is on the city card.</summary>
-        private void RenderTurnActions(UiBuilder ui, GameState state)
-        {
-            PlayerState player = state.CurrentPlayer;
-            if (!_controller.Session.CanControl(player.Id)) return;
-
-            if (_cards.Aiming(state) != CardHand.NoCard)
-            {
-                // A card's town is being picked on the board (Faz 30).
-                _cards.RenderAim(ui, state, _pinnedSquare, () => _pinnedSquare = NoSquare);
-                return;
-            }
-
-            switch (state.Phase)
-            {
-                // A debt has its own card in the middle of the screen (DebtSaleView).
-                case GamePhase.AwaitingTravelDecision:
-                    RenderTravel(ui, player);
-                    break;
-
-                case GamePhase.AwaitingCupChoice:
-                    RenderCup(ui, state, player);
-                    break;
-
-                case GamePhase.AwaitingDiceChoice:
-                    RenderDiceChoice(ui, state, player);
-                    break;
-            }
         }
 
         /// <summary>
@@ -1566,69 +1553,75 @@ namespace Lazpoly.Presentation.Game
             }
         }
 
-        /// <summary>A ride from the travel square: the player picks the destination by clicking a square on the board.</summary>
-        private void RenderTravel(UiBuilder ui, PlayerState player)
-        {
-            BoardDefinition board = _controller.Session.Board;
-            int fee = board[player.Position].Fee;
-            UiBuilder card = ui.Card();
-            card.Label(F($"{board[player.Position].Name}: {fee} ödeyip istediğin kareye gidebilirsin."));
-            card.Label(L("Tahtada parlayan karelerden gitmek istediğine tıkla; piyon oraya yürür."), UiTextStyle.Small, UiTheme.Muted);
-
-            int target = _pinnedSquare;
-            var travel = new TravelCommand(player.Id, target);
-            if (target >= 0 && _controller.IsAllowed(travel))
-            {
-                ui.Button(F($"{L(board[target].Name)} karesine git ({fee})"), () =>
-                {
-                    _pinnedSquare = NoSquare;
-                    _controller.Submit(travel);
-                }, style: UiButtonStyle.Primary, height: CardButton);
-            }
-            else
-            {
-                ui.Button(L("Önce bir kare seç"), null, false, UiButtonStyle.Primary, CardButton);
-            }
-
-            ui.Button(L("Burada kal"), () => _controller.Submit(new DeclineTravelCommand(player.Id)));
-        }
-
         /// <summary>
-        /// The champions' cup: the player picks one of their towns on the board and pays to bring the cup there, which raises
-        /// its rent; the town that held it goes back to its own rent. Or they pass.
+        /// The pick screen while the person here chooses a square on the board (the owner's wish, 2026-11-17): a card's
+        /// town, a ride's destination from the travel square, or the town the champions' cup goes to. The pinned square
+        /// is the pick, which the card's button sends; a square that may be picked gets a name plate under the mouse.
+        /// The view stays where it is.
         /// </summary>
-        private void RenderCup(UiBuilder ui, GameState state, PlayerState player)
+        private void UpdatePick(GameState state)
         {
-            BoardDefinition board = _controller.Session.Board;
-            int fee = board[player.Position].Fee;
-            int percent = GameRules.NextCupPercent(board, state, player.Position);
-            UiBuilder card = ui.Card();
-            card.Label(F($"{L(board[player.Position].Name)}: {fee} ödeyip şehirlerinden birinin kirasını %{percent} artırabilirsin."));
-            card.Label(state.CupSquare == GameState.NoCup
-                    ? L("Tahtada parlayan şehirlerinden birine tıkla. Kupa bir sonraki seçime kadar orada kalır.")
-                    : F($"Kupa şu an {L(board[state.CupSquare].Name)} şehrinde (%{state.CupPercent}). Başka bir şehir seçilirse oradan kalkar."),
-                UiTextStyle.Small, UiTheme.Muted);
-
-            int target = _pinnedSquare;
-            var host = new HostCupCommand(player.Id, target);
-            if (target >= 0 && _controller.IsAllowed(host))
+            BoardPick pick = null;
+            GameCommand command = null;
+            Action cancel = null;
+            bool aimed = false;
+            if (state != null && !_controller.IsBusy && !_controller.EndReason.HasValue)
             {
-                ui.Button(F($"Kupa {L(board[target].Name)} şehrine ({fee})"), () =>
+                PlayerState player = state.CurrentPlayer;
+                BoardDefinition board = _controller.Session.Board;
+                int from = _stagedPick.HasValue && _stagedPickFrom != NoSquare ? _stagedPickFrom : player.Position;
+                int card = _cards.Aiming(state);
+                if (card != CardHand.NoCard)
                 {
-                    _pinnedSquare = NoSquare;
-                    _controller.Submit(host);
-                }, style: UiButtonStyle.Primary, height: CardButton);
-            }
-            else
-            {
-                ui.Button(L("Önce bir şehir seç"), null, false, UiButtonStyle.Primary, CardButton);
+                    aimed = true;
+                    pick = _cards.Pick(state, card, _pinnedSquare);
+                    command = new PlayCardCommand(player.Id, card, _pinnedSquare);
+                    cancel = () =>
+                    {
+                        _cards.StopAiming();
+                        _pinnedSquare = NoSquare;
+                        // Back to where the card was picked up: the hand, or the card just drawn with its two buttons.
+                        _cards.Open = state.Phase != GamePhase.AwaitingCardUse;
+                    };
+                }
+                else if (ChoosingRide(state))
+                {
+                    pick = BoardPick.Ride(board, state, player, from, _pinnedSquare);
+                    command = new TravelCommand(player.Id, _pinnedSquare);
+                    cancel = () =>
+                    {
+                        _pinnedSquare = NoSquare;
+                        _controller.Submit(new DeclineTravelCommand(player.Id));
+                    };
+                }
+                else if (ChoosingCup(state))
+                {
+                    pick = BoardPick.Cup(board, _controller.Session.Rules, state, player, from, _pinnedSquare);
+                    command = new HostCupCommand(player.Id, _pinnedSquare);
+                    cancel = () =>
+                    {
+                        _pinnedSquare = NoSquare;
+                        _controller.Submit(new DeclineCupCommand(player.Id));
+                    };
+                }
             }
 
-            ui.Button(L("Geç"), () =>
+            if (pick == null)
             {
+                _pick.Update(null, NoSquare, NoSquare, false, null, null);
+                return;
+            }
+
+            List<int> choices = BoardChoices(state);
+            int pointed = choices != null && choices.Contains(_hoveredSquare) ? _hoveredSquare : NoSquare;
+            // A staged pick (the screen tour) shows its button as it would stand, though the game is not asking.
+            bool allowed = pick.Ready && (_stagedPick.HasValue || _controller.IsAllowed(command));
+            _pick.Update(pick, _pinnedSquare, pointed, allowed, () =>
+            {
+                if (aimed) _cards.StopAiming();
                 _pinnedSquare = NoSquare;
-                _controller.Submit(new DeclineCupCommand(player.Id));
-            });
+                _controller.Submit(command);
+            }, cancel);
         }
 
         /// <summary>The takeover card's picture width, inside the window's margins.</summary>
@@ -1732,11 +1725,15 @@ namespace Lazpoly.Presentation.Game
             if (playable > 0) ui.Button(F($"Kartlarım ({playable})"), () => _cards.Open = true, true, UiButtonStyle.Secondary, UiTheme.SmallButtonHeight);
         }
 
-        /// <summary>The lookout's two rolls, each with where it would take the player.</summary>
-        private void RenderDiceChoice(UiBuilder ui, GameState state, PlayerState player)
+        /// <summary>The lookout's two rolls on a card in the middle of the screen, each with where it would take the player.</summary>
+        private void RenderDiceCard(UiBuilder ui)
         {
+            GameState state = _controller.Session.State;
+            if (state == null || state.Phase != GamePhase.AwaitingDiceChoice) return;
+            PlayerState player = state.CurrentPlayer;
             BoardDefinition board = _controller.Session.Board;
-            ui.Label(L("Dürbün: iki atıştan birini seç."), UiTextStyle.Small);
+            ui.Title(UiIcon.Dice, Lang.Upper(L("Dürbün")));
+            ui.Label(L("Dürbün: iki atıştan birini seç."), UiTextStyle.Body);
             for (int option = 0; option < 2; option++)
             {
                 int[] dice = GameRules.DiceOption(state, option);

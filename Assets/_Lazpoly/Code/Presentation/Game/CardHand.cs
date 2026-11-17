@@ -317,47 +317,25 @@ namespace Lazpoly.Presentation.Game
             }, _controller.IsAllowed(play), UiButtonStyle.Primary, UiTheme.SmallButtonHeight);
         }
 
+        /// <summary>How far a card family's deep colour is lightened for the pick card's ribbon, so it shows on the dark band.</summary>
+        public const float RibbonLift = 0.3f;
+
         /// <summary>
-        /// The bottom panel while a card's town is picked on the board: what the card does, the picked town with what it
-        /// costs or does there, the button that plays it, and the way back to the hand.
+        /// What the pick card says while <paramref name="card"/>'s town is picked on the board: the card's name and
+        /// family in the band, where to click, and for a picked square the card may be played at its name (with a
+        /// warning when a shield stands in an attack's way) and the button that plays it there.
         /// </summary>
-        public void RenderAim(UiBuilder ui, GameState state, int picked, Action unpick)
+        public BoardPick Pick(GameState state, int card, int picked) => PickFor(Board, state, card, picked);
+
+        /// <summary>The same for any board and state: pure words, so they can be tested without a table.</summary>
+        public static BoardPick PickFor(BoardDefinition board, GameState state, int card, int picked)
         {
-            int card = Aiming(state);
-            if (card == NoCard) return;
-            CardDefinition definition = Board.Cards[card];
-            PlayerState player = state.CurrentPlayer;
-            UiBuilder block = CardBlock(ui, card);
-            block.Label(AimHint(definition.Aim), UiTextStyle.Small);
-
-            var play = new PlayCardCommand(player.Id, card, picked);
-            bool chosen = picked >= 0 && GameRules.CardTargets(Board, state, player, card).Contains(picked);
-            if (chosen && definition.IsAttack && state.HasShield(picked))
-            {
-                ui.Notice(L("Bu şehirde koruma kalkanı var: saldırın durur, kalkan kalkar."));
-            }
-
-            if (chosen && _controller.IsAllowed(play))
-            {
-                ui.Button(PlayLabel(definition, picked), () =>
-                {
-                    StopAiming();
-                    unpick();
-                    _controller.Submit(play);
-                }, style: UiButtonStyle.Primary, height: UiLayout.CardButtonHeight);
-            }
-            else
-            {
-                ui.Button(L("Önce tahtadan bir yer seç"), null, false, UiButtonStyle.Primary, UiLayout.CardButtonHeight);
-            }
-
-            ui.Button(L("Vazgeç"), () =>
-            {
-                StopAiming();
-                unpick();
-                // Back to where the card was picked up: the hand, or the card just drawn with its two buttons.
-                Open = state.Phase != GamePhase.AwaitingCardUse;
-            });
+            CardDefinition definition = board.Cards[card];
+            bool chosen = picked >= 0 && GameRules.CardTargets(board, state, state.CurrentPlayer, card).Contains(picked);
+            string note = chosen && definition.IsAttack && state.HasShield(picked) ? L("Bu şehirde koruma kalkanı var: saldırın durur, kalkan kalkar.") : null;
+            Color ribbon = Color.Lerp(CardArt.ToneColor(CardArt.ToneFor(definition.Kind)), Color.white, RibbonLift);
+            return new BoardPick(CardPlay.Name(board, card), CardArt.Family(definition.Kind) ?? L("Kart"), ribbon, AimHint(definition.Aim),
+                chosen ? L(board[picked].Name) : null, note, chosen ? PlayLabel(board, definition, picked) : L("Oyna"), L("Vazgeç"));
         }
 
         private static string AimHint(CardTarget aim)
@@ -372,13 +350,13 @@ namespace Lazpoly.Presentation.Game
         }
 
         /// <summary>The play button for a picked square: "Paris'e oyna", with the price where the card costs money.</summary>
-        private string PlayLabel(CardDefinition card, int square)
+        private static string PlayLabel(BoardDefinition board, CardDefinition card, int square)
         {
-            string town = L(Board[square].Name);
+            string town = L(board[square].Name);
             switch (card.Kind)
             {
-                case CardKind.LandDeal: return F($"{town} al ({M(GameRules.LandDealCost(Board, card, square))})");
-                case CardKind.Renewal: return F($"{town} için bina kur ({M(GameRules.RenewalCost(Board, card, square))})");
+                case CardKind.LandDeal: return F($"{town} al ({M(GameRules.LandDealCost(board, card, square))})");
+                case CardKind.Renewal: return F($"{town} için bina kur ({M(GameRules.RenewalCost(board, card, square))})");
                 case CardKind.Chauffeur: return F($"{town} karesine git");
                 default: return F($"Oyna: {town}");
             }

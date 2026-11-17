@@ -5,10 +5,11 @@ namespace Lazpoly.Presentation.Tabletop
 {
     /// <summary>
     /// The fixed isometric view of the board: an orthographic camera looking down at the board from one
-    /// corner, so the board is a diamond on the screen. The mouse wheel zooms, <see cref="ResetView"/>
-    /// (or the Home key) returns to the framed view that <see cref="BoardCameraFraming"/> computes,
-    /// and a pinned square pulls the view a little towards itself (<see cref="Peek"/>); the view never
-    /// leaves the board. The screenshot presets may turn it to another corner. The pointer over the interface is left alone.
+    /// corner, so the board is a diamond on the screen. The mouse wheel zooms and <see cref="ResetView"/>
+    /// (or the Home key) returns to the framed view that <see cref="BoardCameraFraming"/> computes; nothing
+    /// the game asks moves the view (the owner's wish, 2026-11-17: a pick on the board no longer draws it back
+    /// or leans it). The screenshot presets may turn it to another corner or hold it on a spot
+    /// (<see cref="Hold"/>), never off the board. The pointer over the interface is left alone.
     /// </summary>
     [RequireComponent(typeof(Camera))]
     public sealed class BoardCameraRig : MonoBehaviour
@@ -25,8 +26,6 @@ namespace Lazpoly.Presentation.Tabletop
         public const float MinZoom = 0.45f;
         public const float MaxZoom = 1.15f;
 
-        /// <summary>How far towards a pinned square the view slides: a fraction of the distance.</summary>
-        public const float PeekAmount = 0.3f;
         private const float WheelStep = 0.1f;
         private const float Smoothing = 12f;
 
@@ -38,7 +37,6 @@ namespace Lazpoly.Presentation.Tabletop
         private bool _hasBase;
         private float _yaw = BaseYaw;
         private float _zoom = 1f;
-        private Vector3? _peek;
         private Vector3? _held;
 
         public float Yaw => _yaw;
@@ -70,12 +68,9 @@ namespace Lazpoly.Presentation.Tabletop
             _zoom = Mathf.Clamp(zoom, MinZoom, MaxZoom);
         }
 
-        /// <summary>Slides the view part of the way towards a point on the board (a pinned square); null lets it go.</summary>
-        public void Peek(Vector3? worldPoint) => _peek = worldPoint;
-
         /// <summary>
-        /// Holds the view on a point of the board, whatever is pinned (the screenshot presets use it to show one spot
-        /// from near); null lets it go.
+        /// Holds the view on a point of the board (the screenshot presets use it to show one spot from near); null
+        /// lets it go.
         /// </summary>
         public void Hold(Vector3? worldPoint) => _held = worldPoint;
 
@@ -93,14 +88,6 @@ namespace Lazpoly.Presentation.Tabletop
             return new Vector3(
                 boardCenter.x + Mathf.Clamp(point.x - boardCenter.x, -halfExtent, halfExtent), point.y,
                 boardCenter.z + Mathf.Clamp(point.z - boardCenter.z, -halfExtent, halfExtent));
-        }
-
-        /// <summary>Where the view aims once the peek is applied: the framed aim slid towards the point, at the aim's own height.</summary>
-        public static Vector3 PeekAim(Vector3 aim, Vector3? peek, Vector3 boardCenter, float halfExtent)
-        {
-            if (!peek.HasValue) return aim;
-            Vector3 target = ClampToBoard(peek.Value, boardCenter, halfExtent);
-            return Vector3.Lerp(aim, new Vector3(target.x, aim.y, target.z), PeekAmount);
         }
 
         /// <summary>Camera position that looks at <paramref name="aim"/> from <paramref name="distance"/> away, tilted and turned as given.</summary>
@@ -131,7 +118,7 @@ namespace Lazpoly.Presentation.Tabletop
 
         private void Apply(bool snap)
         {
-            Vector3 aim = _held.HasValue ? HeldAim(_aim, _held.Value, _boardCenter, _boardHalfExtent) : PeekAim(_aim, _peek, _boardCenter, _boardHalfExtent);
+            Vector3 aim = _held.HasValue ? HeldAim(_aim, _held.Value, _boardCenter, _boardHalfExtent) : _aim;
             Vector3 position = Place(aim, Pitch, _yaw, Distance);
             Quaternion rotation = Quaternion.Euler(Pitch, _yaw, 0f);
             float size = SizeAt(_baseSize, _zoom);

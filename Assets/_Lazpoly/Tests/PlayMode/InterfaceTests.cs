@@ -12,6 +12,7 @@ using Lazpoly.Presentation.Audio;
 using Lazpoly.Presentation.Data;
 using Lazpoly.Presentation.Game;
 using Lazpoly.Presentation.Setup;
+using Lazpoly.Presentation.Tabletop;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -413,6 +414,102 @@ namespace Lazpoly.PlayTests
             Assert.AreEqual(10 + gain - 100, state.FindPlayer(debtor).Money);
             Assert.AreEqual(creditorMoney + 100, state.FindPlayer(creditor).Money);
             Assert.IsFalse(sale.Shown, "The sale card stayed up.");
+        }
+
+        [UnityTest]
+        public IEnumerator ARideIsPickedOnTheCardOverTheLawnAndTheViewStaysStill()
+        {
+            // The owner's wish (2026-11-17): picking where the bus goes opens no panel at the bottom and does not draw the
+            // view back. A saved game where the player on turn starts the turn at the bus station.
+            BoardData data = BoardDataLoader.LoadFromResources();
+            LocalGame game = LocalGame.Create(data.Board, data.Rules, LocalGameSetup.DefaultSeats(2), new Dictionary<int, AiDifficulty>(), 7UL);
+            SavedGame save = game.Save(data.Checksum);
+            save.Table = save.Table.WithTurnSeconds(0); // No clock: the ride is not declined for them while the test looks.
+            GameStateSnapshot snapshot = save.Snapshot;
+            int rider = snapshot.Players[snapshot.CurrentPlayerIndex].Id;
+            int station = -1;
+            for (int i = 0; i < data.Board.Count && station < 0; i++)
+            {
+                if (data.Board[i].Type == SquareType.Travel) station = i;
+            }
+
+            Assert.GreaterOrEqual(station, 0, "The board has no bus station.");
+            snapshot.Players[snapshot.CurrentPlayerIndex].Position = station;
+            snapshot.TurnNumber = 3;
+            snapshot.Phase = GamePhase.AwaitingTravelDecision;
+            LocalGameSetup.SetResume(save);
+
+            SceneManager.LoadScene("Game");
+            yield return null;
+            yield return null;
+            var controller = Object.FindAnyObjectByType<GameSceneController>();
+            var hud = controller.GetComponent<GameHud>();
+            while (controller.IsBusy) yield return null;
+            yield return null;
+            yield return null;
+            Assert.AreEqual(GamePhase.AwaitingTravelDecision, controller.Session.State.Phase);
+
+            // The card is up over the lawn with the station's name; going is not offered before a square is picked.
+            BoardPickView pick = hud.Pick;
+            Assert.IsTrue(pick.Shown, "The pick card did not open.");
+            Assert.AreEqual(data.Board[station].Name, pick.Pick.Title);
+            Assert.IsFalse(pick.Pick.Ready);
+            Assert.AreEqual(-1, pick.PickedSquare);
+            Assert.IsNull(Find(hud.transform, "Git"), "Going is offered with no square picked.");
+            Assert.IsNull(Find(hud.transform, "ZAR AT"), "Rolling is offered under the pick card.");
+            AssertMouseReaches("Burada kal");
+
+            // The view is the framed one: the whole board at its usual size, whatever the game asks.
+            Camera camera = Camera.main;
+            float framed = BoardCameraFraming.OrthographicSize(controller.Board.HalfExtent, BoardView.PlateThickness, BoardCameraRig.Pitch,
+                Screen.width, Screen.height, hud.ReservedSidePixels);
+            float waited = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - waited < 1f) yield return null; // The rig eases by the real clock.
+            Assert.AreEqual(framed, camera.orthographicSize, framed * 0.01f, "The view is drawn back (or in) while a ride is picked.");
+            Vector3 stood = camera.transform.position;
+            float size = camera.orthographicSize;
+
+            // A click on a square the bus may go to picks it: its plate stands over it and the view stays where it is.
+            GameState state = controller.Session.State;
+            int destination = -1;
+            for (int step = 1; step < data.Board.Count && destination < 0; step++)
+            {
+                int square = (station + step) % data.Board.Count;
+                bool free = data.Board[square].Type == SquareType.Property && state.GetOwner(square) == GameState.NoOwner;
+                if (free && GameRules.IsRideDestination(data.Board, state, state.FindPlayer(rider), square)) destination = square;
+            }
+
+            Assert.GreaterOrEqual(destination, 0, "The bus has nowhere to go.");
+            hud.ClickSquare(state, station);
+            yield return null;
+            Assert.AreEqual(-1, pick.PickedSquare, "The station itself was picked.");
+            hud.ClickSquare(state, destination);
+            waited = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - waited < 0.5f) yield return null;
+            Assert.AreEqual(destination, pick.PickedSquare, "The picked square has no plate.");
+            Assert.IsTrue(pick.Pick.Ready);
+            Assert.Less(Vector3.Distance(stood, camera.transform.position), 0.01f, "The view moved towards the picked square.");
+            Assert.AreEqual(size, camera.orthographicSize, size * 0.001f, "The view changed its size for the pick.");
+
+            // "Git" takes the bus there and the card goes away.
+            AssertMouseReaches("Git");
+            int money = state.FindPlayer(rider).Money;
+            Assert.IsTrue(Press(hud.transform, "Git"));
+            Assert.IsNull(controller.LastRejection);
+            float left = Time.realtimeSinceStartup;
+            while (controller.IsBusy)
+            {
+                Assert.Less(Time.realtimeSinceStartup - left, 60f, "The ride never ended.");
+                yield return null;
+            }
+
+            yield return null;
+            state = controller.Session.State;
+            Assert.AreEqual(destination, state.FindPlayer(rider).Position, "The bus did not go to the picked square.");
+            // A ride past Start also pays its bonus, so the fare is the least that is gone on a ride that does not pass it.
+            if (destination > station) Assert.AreEqual(money - data.Board[station].Fee, state.FindPlayer(rider).Money, "The fare was not paid.");
+            Assert.IsFalse(pick.Shown, "The pick card stayed up.");
+            Assert.AreEqual(-1, pick.PickedSquare);
         }
 
         /// <summary>

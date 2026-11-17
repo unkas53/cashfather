@@ -3,9 +3,11 @@ using UnityEngine;
 namespace Lazpoly.Presentation.Effects
 {
     /// <summary>
-    /// How a building leaves its square (the owner's wish, 2026-11-17: a fine animation when a town is sold and when it
-    /// is torn down): sold, it crouches, springs up off the tile turning once and is gone in a twinkle of gold; torn
-    /// down, it trembles and falls in on itself in a cloud of dust, its rubble thrown about.
+    /// How a building leaves its square (the owner's wishes, 2026-11-17: a fine animation when a town is sold and when it
+    /// is torn down, and a professional one). Sold, it swells a touch, then is drawn up into a point of light and is gone
+    /// in a flash with glints flying. Torn down, it is jolted, gives way and drops into its own rolling cloud of dust
+    /// (going down into the ground as much as it is crushed, so it never flattens like a box) while its rubble is thrown
+    /// out, bounces and lies.
     /// </summary>
     public enum Leaving
     {
@@ -18,6 +20,9 @@ namespace Lazpoly.Presentation.Effects
     {
         /// <summary>How far it has risen, 0 to 1 of the whole way up.</summary>
         public float Lift;
+
+        /// <summary>How far it has gone down into the ground, as a share of its own height.</summary>
+        public float Sink;
 
         /// <summary>Degrees turned about its own upright.</summary>
         public float Turn;
@@ -35,75 +40,86 @@ namespace Lazpoly.Presentation.Effects
     /// <summary>The two leavings as pure curves over 0..1 of their time, so they can be tested without a table.</summary>
     public static class LeavingMotion
     {
-        /// <summary>How long a sold building takes to go, and a torn-down one.</summary>
-        public const float SoldSeconds = 0.95f;
-        public const float DemolishedSeconds = 1.2f;
+        /// <summary>How long a sold building takes to go, and a torn-down one. Their effects (<see cref="LeavingBurst"/>) outlast them.</summary>
+        public const float SoldSeconds = 0.7f;
+        public const float DemolishedSeconds = 0.9f;
 
-        /// <summary>A sold building crouches for this share of its time before it springs up; then it keeps its size until <see cref="ShrinkFrom"/> of the way up.</summary>
-        public const float Crouch = 0.2f;
-        public const float CrouchDepth = 0.14f;
-        public const float ShrinkFrom = 0.45f;
+        /// <summary>A sold building swells by <see cref="SwellBy"/> over this share of its time, then is drawn up thin and tall, turning a little, into nothing.</summary>
+        public const float Swell = 0.25f;
+        public const float SwellBy = 0.08f;
+        public const float Thin = 0.3f;
+        public const float Tall = 0.35f;
+        public const float Twist = 90f;
 
-        /// <summary>A torn-down building only trembles for this share of its time; then it falls in, leaning a little.</summary>
-        public const float Tremble = 0.32f;
-        public const float TrembleBeats = 13f;
-        public const float Lean = 7f;
-        public const float Bulge = 0.1f;
+        /// <summary>The share of a sold building's time at which its light flashes: just before the last of it is gone.</summary>
+        public const float FlashAt = 0.84f;
+
+        /// <summary>A torn-down building is jolted for this share of its time, settling by <see cref="Settle"/>; then it drops, leaning and rumbling.</summary>
+        public const float Jolt = 0.2f;
+        public const float JoltBeats = 3f;
+        public const float Settle = 0.04f;
+
+        /// <summary>By the end of the drop it stands this much of its height, and has gone as far into the ground: its roof is down at the tile, in the dust.</summary>
+        public const float Crush = 0.5f;
+        public const float Lean = 6f;
+        public const float Bulge = 0.07f;
+        public const float Rumble = 0.35f;
+        public const float RumbleBeats = 14f;
 
         /// <summary>The smallest a leaving building is drawn, so its size never turns to nothing while it is still shown.</summary>
         public const float Least = 0.02f;
 
-        /// <summary>The share of its time at which the gold twinkles (sold) or the dust rises (torn down), and at which what stays behind shows again.</summary>
-        public const float TwinkleAt = 0.6f;
-        public const float DustAt = Tremble;
-        public const float UncoverAt = 0.7f;
+        /// <summary>The share of its time at which what stays behind (a lower house, the plot) shows again: behind the flash, or inside the dust.</summary>
+        public const float UncoverAt = 0.88f;
 
         public static float Seconds(Leaving how) => how == Leaving.Demolished ? DemolishedSeconds : SoldSeconds;
 
-        /// <summary>When the burst of a leaving starts, as a share of its time.</summary>
-        public static float BurstAt(Leaving how) => how == Leaving.Demolished ? DustAt : TwinkleAt;
-
         public static LeavingPose At(Leaving how, float t) => how == Leaving.Demolished ? Demolished(t) : Sold(t);
 
-        /// <summary>Sold: down into a crouch, then up and round once, getting smaller on the way until it is gone at the top.</summary>
+        /// <summary>Sold: a small swell, as a breath taken, then up, thinner and taller, turning, to a point.</summary>
         public static LeavingPose Sold(float t)
         {
             t = Mathf.Clamp01(t);
             var pose = new LeavingPose();
-            float stretch;
-            float size = 1f;
-            if (t < Crouch)
+            if (t < Swell)
             {
-                stretch = -CrouchDepth * Ease.OutCubic(t / Crouch);
-            }
-            else
-            {
-                float up = (t - Crouch) / (1f - Crouch);
-                pose.Lift = Ease.OutCubic(up);
-                pose.Turn = 360f * Ease.InOutCubic(up);
-                // Out of the crouch it stretches a little past its height and settles.
-                stretch = up < 0.3f ? Mathf.Lerp(-CrouchDepth, 0.08f, Ease.OutCubic(up / 0.3f)) : Mathf.Lerp(0.08f, 0f, (up - 0.3f) / 0.7f);
-                if (up > ShrinkFrom) size = Mathf.Max(Least, 1f - Ease.InCubic((up - ShrinkFrom) / (1f - ShrinkFrom)));
+                pose.Scale = Vector3.one * (1f + SwellBy * Ease.OutCubic(t / Swell));
+                return pose;
             }
 
-            // What it loses in height it gains in width, as a soft thing would.
-            pose.Scale = new Vector3(1f - stretch / 2f, 1f + stretch, 1f - stretch / 2f) * size;
+            float away = (t - Swell) / (1f - Swell);
+            float size = (1f + SwellBy) * (1f - Ease.InCubic(away));
+            float thin = 1f - Thin * away * away;
+            float tall = 1f + Tall * away * away;
+            pose.Lift = Ease.InOutCubic(away);
+            pose.Turn = Twist * Ease.InCubic(away);
+            pose.Scale = new Vector3(Mathf.Max(Least, size * thin), Mathf.Max(Least, size * tall), Mathf.Max(Least, size * thin));
             return pose;
         }
 
-        /// <summary>Torn down: a growing tremble, then it sinks into itself, bulging and leaning, the tremble dying away.</summary>
+        /// <summary>Torn down: a sharp jolt that dies away as the walls settle, then the drop, ever faster, leaning, bulging and rumbling.</summary>
         public static LeavingPose Demolished(float t)
         {
             t = Mathf.Clamp01(t);
-            float fall = t < Tremble ? 0f : (t - Tremble) / (1f - Tremble);
-            float strength = t < Tremble ? t / Tremble : 1f - fall;
-            float height = Mathf.Max(Least, 1f - fall * fall);
-            float width = 1f + Bulge * Ease.Bump(fall);
+            if (t < Jolt)
+            {
+                float jolt = t / Jolt;
+                float give = Ease.OutCubic(jolt);
+                return new LeavingPose
+                {
+                    Shake = Mathf.Sin(jolt * JoltBeats * 2f * Mathf.PI) * (1f - jolt),
+                    Scale = new Vector3(1f + Settle * 0.3f * give, 1f - Settle * give, 1f + Settle * 0.3f * give),
+                };
+            }
+
+            float fall = (t - Jolt) / (1f - Jolt);
+            float width = 1f + Settle * 0.3f + Bulge * Ease.Bump(fall);
             return new LeavingPose
             {
-                Shake = Mathf.Sin(t * TrembleBeats * 2f * Mathf.PI) * strength,
-                Tilt = Lean * Ease.OutCubic(fall),
-                Scale = new Vector3(width, height, width),
+                Shake = Rumble * Mathf.Sin(fall * RumbleBeats * 2f * Mathf.PI) * Ease.Bump(fall),
+                Tilt = Lean * fall * fall,
+                Sink = (1f - Settle) * Crush * fall * fall,
+                Scale = new Vector3(width, (1f - Settle) * (1f - (1f - Crush) * fall * fall), width),
             };
         }
     }

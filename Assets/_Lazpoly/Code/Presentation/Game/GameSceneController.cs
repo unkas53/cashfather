@@ -1034,10 +1034,11 @@ namespace Lazpoly.Presentation.Game
         private bool _touring;
 
         /// <summary>
-        /// Shows a three-storey house leaving a town nobody owns (so the game itself is not touched): the picture is taken
-        /// with the clock held a little past the middle of the leaving, when its burst is in the air.
+        /// Shows a three-storey house leaving a town nobody owns (so the game itself is not touched). Two pictures are
+        /// taken with the clock held: <paramref name="first"/> seconds in, the house on its way, and
+        /// <paramref name="second"/> seconds in, what is left in the air once it has gone (named with "-2").
         /// </summary>
-        private IEnumerator TourLeaving(Leaving how, string picture)
+        private IEnumerator TourLeaving(Leaving how, string picture, float first, float second)
         {
             int town = -1;
             for (int i = 0; i < _session.Board.Count && town < 0; i++)
@@ -1052,17 +1053,17 @@ namespace Lazpoly.Presentation.Game
             yield return null;
             _board.SetBuildingLevel(town, 0, animate: true, leaving: how);
             _board.ClearOwner(town, animate: true, leaving: how);
-            yield return new WaitForSeconds(LeavingMotion.Seconds(how) * TourLeavingAt);
             float pace = Time.timeScale;
+            yield return new WaitForSeconds(first);
             Time.timeScale = 0f;
             yield return ScreenTour.Take(picture);
             Time.timeScale = pace;
-            yield return ScreenTour.Until(() => _board.LeavingCount == 0, 3f);
-            yield return ScreenTour.Until(() => false, LeavingBurst.DustSeconds);
+            yield return new WaitForSeconds(second - first);
+            Time.timeScale = 0f;
+            yield return ScreenTour.Take(picture + "-2");
+            Time.timeScale = pace;
+            yield return ScreenTour.Until(() => _board.LeavingCount == 0 && _board.GetComponentInChildren<LeavingBurst>() == null, 6f);
         }
-
-        /// <summary>How far into a leaving the screen tour takes its picture.</summary>
-        public const float TourLeavingAt = 0.8f;
 
         /// <summary>
         /// The table's part of the screen tour (<see cref="ScreenTour"/>): the city card the person stands at, the
@@ -1350,8 +1351,8 @@ namespace Lazpoly.Presentation.Game
             }
 
             // A building leaving (the owner's wish, 2026-11-17), caught on its way: sold, and torn down.
-            yield return TourLeaving(Leaving.Sold, "bina-satis");
-            yield return TourLeaving(Leaving.Demolished, "bina-yikim");
+            yield return TourLeaving(Leaving.Sold, "bina-satis", 0.5f, 0.8f);
+            yield return TourLeaving(Leaving.Demolished, "bina-yikim", 0.5f, 1.1f);
 
             // The other cards in the middle, one of each (the owner's wish, 2026-11-09): a drawn money card and a drawn
             // strategy card, a trade's result and a player who cannot pay.

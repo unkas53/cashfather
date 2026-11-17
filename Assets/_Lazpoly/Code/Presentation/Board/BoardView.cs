@@ -884,9 +884,9 @@ namespace Lazpoly.Presentation.Tabletop
             SetOwner(squareIndex, null);
         }
 
-        /// <summary>How high a sold building springs before it is gone, and how far a torn-down one trembles to its side, in tile widths.</summary>
-        public const float LeaveLift = 0.85f;
-        public const float LeaveShake = 0.022f;
+        /// <summary>How high a sold building is drawn up as it goes, and how far a torn-down one is shaken to its side, in tile widths.</summary>
+        public const float LeaveLift = 0.3f;
+        public const float LeaveShake = 0.03f;
 
         /// <summary>The leavings under way now (<see cref="Leaving"/>): tests and the screen tour look at them.</summary>
         public int LeavingCount { get; private set; }
@@ -899,21 +899,20 @@ namespace Lazpoly.Presentation.Tabletop
 
         /// <summary>
         /// Plays a building's (or a marker's) leaving from where it rests: it moves through <see cref="LeavingMotion"/>
-        /// while its burst flies (<see cref="LeavingBurst"/>), then stands as it was again, hidden or not as
-        /// <paramref name="then"/> decides.
+        /// while its burst plays round it (<see cref="LeavingBurst"/>, sized to the piece itself), then stands as it was
+        /// again, hidden or not as <paramref name="then"/> decides.
         /// </summary>
         private IEnumerator Leave(Transform piece, Vector3 rest, Vector3 size, Leaving how, Color wall, System.Action then)
         {
             Quaternion facing = piece.localRotation;
             float seconds = LeavingMotion.Seconds(how);
-            // The twinkle is where the sold building vanishes, up in the air; the dust at the foot of the one torn down.
-            Vector3 at = rest + Vector3.up * (how == Leaving.Sold ? _width * LeaveLift : _width * 0.06f);
-            LeavingBurst.Play(transform, at, _width, how, wall, seconds * LeavingMotion.BurstAt(how));
+            Measure(piece, rest, out Vector3 foot, out float across, out float high);
+            LeavingBurst.Play(transform, how, foot, across, high, _width, _width * LeaveLift, wall, piece.GetSiblingIndex() * 31 + Mathf.RoundToInt(rest.x * 97f + rest.z * 13f), HalfExtent);
             LeavingCount++;
             for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
             {
                 if (piece == null) break;
-                PoseLeaving(piece, rest, size, facing, LeavingMotion.At(how, t), _width);
+                PoseLeaving(piece, rest, size, facing, LeavingMotion.At(how, t), _width, high);
                 yield return null;
             }
 
@@ -926,10 +925,42 @@ namespace Lazpoly.Presentation.Tabletop
             then?.Invoke();
         }
 
-        /// <summary>Puts a piece at one moment of its leaving, on top of the place, turn and size it rests at, on a square <paramref name="width"/> wide.</summary>
-        public static void PoseLeaving(Transform piece, Vector3 rest, Vector3 size, Quaternion facing, LeavingPose pose, float width)
+        /// <summary>
+        /// The room a piece takes on the board, from what it draws: the middle of its foot (at the height it rests at),
+        /// how wide it is across and how high. A piece that draws nothing counts as half a tile each way.
+        /// </summary>
+        private void Measure(Transform piece, Vector3 rest, out Vector3 foot, out float across, out float high)
         {
-            piece.localPosition = rest + Vector3.up * (pose.Lift * width * LeaveLift) + facing * Vector3.right * (pose.Shake * width * LeaveShake);
+            foot = rest;
+            across = high = _width * 0.5f;
+            Renderer[] parts = piece.GetComponentsInChildren<Renderer>();
+            if (parts.Length == 0) return;
+            Bounds room = parts[0].bounds;
+            for (int i = 1; i < parts.Length; i++) room.Encapsulate(parts[i].bounds);
+            Vector3 low = transform.InverseTransformPoint(room.min), top = transform.InverseTransformPoint(room.max);
+            Fit(low, top, rest.y, _width, out foot, out across, out high);
+        }
+
+        /// <summary>
+        /// A burst's measures from a piece's box (<paramref name="low"/> to <paramref name="top"/>) on a tile
+        /// <paramref name="tile"/> wide: the foot's middle at <paramref name="ground"/>, the box's width (the mean of its
+        /// two sides, as a turned house fills a wider box than itself) and its height above the ground, each kept to
+        /// what a building on a tile can be.
+        /// </summary>
+        public static void Fit(Vector3 low, Vector3 top, float ground, float tile, out Vector3 foot, out float across, out float high)
+        {
+            foot = new Vector3((low.x + top.x) * 0.5f, ground, (low.z + top.z) * 0.5f);
+            across = Mathf.Clamp((Mathf.Abs(top.x - low.x) + Mathf.Abs(top.z - low.z)) * 0.5f, tile * 0.2f, tile * 0.9f);
+            high = Mathf.Clamp(Mathf.Max(low.y, top.y) - ground, tile * 0.15f, tile * 2f);
+        }
+
+        /// <summary>
+        /// Puts a piece at one moment of its leaving, on top of the place, turn and size it rests at, on a square
+        /// <paramref name="width"/> wide; a piece <paramref name="height"/> high goes into the ground by shares of that.
+        /// </summary>
+        public static void PoseLeaving(Transform piece, Vector3 rest, Vector3 size, Quaternion facing, LeavingPose pose, float width, float height)
+        {
+            piece.localPosition = rest + Vector3.up * (pose.Lift * width * LeaveLift - pose.Sink * height) + facing * Vector3.right * (pose.Shake * width * LeaveShake);
             piece.localRotation = facing * Quaternion.Euler(pose.Tilt, pose.Turn, 0f);
             piece.localScale = Vector3.Scale(size, pose.Scale);
         }

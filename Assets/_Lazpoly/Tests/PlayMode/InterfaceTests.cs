@@ -573,7 +573,7 @@ namespace Lazpoly.PlayTests
             Assert.GreaterOrEqual(town, 0, "The board has no free town.");
             Time.timeScale = 4f; // Slow enough for the test to see a leaving on its way, whatever the frame takes.
 
-            // Sold with its town: the house springs up off its tile, a gold twinkle flies, and neither it nor the plot stays.
+            // Sold with its town: the house is drawn up off its tile into light, and neither it nor the plot stays.
             board.SetOwner(town, Color.red);
             board.SetBuildingLevel(town, 2);
             yield return null;
@@ -585,7 +585,7 @@ namespace Lazpoly.PlayTests
             Assert.IsTrue(house.gameObject.activeSelf, "The sold house is gone at once.");
             Assert.IsFalse(board.MarkerShown(town), "The plot shows under a house that is leaving with its town.");
             LeavingBurst twinkle = board.GetComponentInChildren<LeavingBurst>();
-            Assert.IsNotNull(twinkle, "A sold house leaves without a twinkle.");
+            Assert.IsNotNull(twinkle, "A sold house leaves without its light.");
             Assert.AreEqual(Leaving.Sold, twinkle.How);
             float highest = 0f;
             started = Time.realtimeSinceStartup;
@@ -615,19 +615,21 @@ namespace Lazpoly.PlayTests
             bool dust = false;
             foreach (LeavingBurst burst in board.GetComponentsInChildren<LeavingBurst>()) dust |= burst.How == Leaving.Demolished;
             Assert.IsTrue(dust, "A torn-down house falls without dust.");
-            float lowest = 1f;
+            float lowest = 1f, deepest = 0f;
             highest = 0f;
             started = Time.realtimeSinceStartup;
             while ((board.LeavingCount > 0 || !lower.gameObject.activeSelf) && Time.realtimeSinceStartup - started < 10f)
             {
                 highest = Mathf.Max(highest, house.localPosition.y - rest.y);
                 if (house.gameObject.activeSelf) lowest = Mathf.Min(lowest, house.localScale.y / size.y);
+                deepest = Mathf.Max(deepest, rest.y - house.localPosition.y);
                 yield return null;
             }
 
             Assert.AreEqual(0, board.LeavingCount, "The torn-down house never finished falling.");
             Assert.AreEqual(0f, highest, 1e-4f, "The torn-down house left the ground.");
-            Assert.Less(lowest, 0.5f, "The torn-down house never fell in.");
+            Assert.Less(lowest, 0.8f, "The torn-down house was never crushed.");
+            Assert.Greater(deepest, 0f, "The torn-down house never went down into its dust.");
             Assert.IsFalse(house.gameObject.activeSelf, "The torn-down house stays.");
             Assert.IsTrue(lower.gameObject.activeSelf, "The lower house does not stand after the floor is gone.");
             Assert.IsFalse(board.MarkerShown(town), "The plot shows beside a house.");

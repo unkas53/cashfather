@@ -10,6 +10,7 @@ using Lazpoly.Core.Events;
 using Lazpoly.Core.State;
 using Lazpoly.Presentation.Audio;
 using Lazpoly.Presentation.Data;
+using Lazpoly.Presentation.Effects;
 using Lazpoly.Presentation.Game;
 using Lazpoly.Presentation.Setup;
 using Lazpoly.Presentation.Tabletop;
@@ -546,6 +547,98 @@ namespace Lazpoly.PlayTests
             }
 
             return false;
+        }
+
+        [UnityTest]
+        public IEnumerator ASoldBuildingSpringsAwayAndATornDownOneFallsInAndNothingIsLeftBehind()
+        {
+            // The owner's wish (2026-11-17): a fine animation for a town's buildings when it is sold and when it is torn
+            // down. The board is shown a house on a town nobody owns, so the game itself is not touched.
+            LocalGameSetup.SetSeats(LocalGameSetup.DefaultSeats(2));
+            SceneManager.LoadScene("Game");
+            yield return null;
+            yield return null;
+            var controller = Object.FindAnyObjectByType<GameSceneController>();
+            float started = Time.realtimeSinceStartup;
+            while (controller.IsBusy && Time.realtimeSinceStartup - started < 30f) yield return null;
+            BoardView board = controller.Board;
+            BoardDefinition squares = controller.Session.Board;
+            int town = -1;
+            // The last town of the board: no pawn reaches it from the start in the time the test takes.
+            for (int i = squares.Count - 1; i > 0 && town < 0; i--)
+            {
+                if (squares[i].Type == SquareType.Property && squares[i].IsDevelopable && controller.Session.State.GetOwner(i) == GameState.NoOwner) town = i;
+            }
+
+            Assert.GreaterOrEqual(town, 0, "The board has no free town.");
+            Time.timeScale = 4f; // Slow enough for the test to see a leaving on its way, whatever the frame takes.
+
+            // Sold with its town: the house springs up off its tile, a gold twinkle flies, and neither it nor the plot stays.
+            board.SetOwner(town, Color.red);
+            board.SetBuildingLevel(town, 2);
+            yield return null;
+            Transform house = board.BuildingPieces(town)[1].transform;
+            Vector3 rest = house.localPosition, size = house.localScale;
+            board.SetBuildingLevel(town, 0, animate: true, leaving: Leaving.Sold);
+            board.ClearOwner(town, animate: true, leaving: Leaving.Sold);
+            Assert.AreEqual(1, board.LeavingCount, "One building leaves: the plot under it does not.");
+            Assert.IsTrue(house.gameObject.activeSelf, "The sold house is gone at once.");
+            Assert.IsFalse(board.MarkerShown(town), "The plot shows under a house that is leaving with its town.");
+            LeavingBurst twinkle = board.GetComponentInChildren<LeavingBurst>();
+            Assert.IsNotNull(twinkle, "A sold house leaves without a twinkle.");
+            Assert.AreEqual(Leaving.Sold, twinkle.How);
+            float highest = 0f;
+            started = Time.realtimeSinceStartup;
+            while (board.LeavingCount > 0 && Time.realtimeSinceStartup - started < 10f)
+            {
+                highest = Mathf.Max(highest, house.localPosition.y - rest.y);
+                yield return null;
+            }
+
+            Assert.AreEqual(0, board.LeavingCount, "The sold house never finished leaving.");
+            Assert.Greater(highest, 0f, "The sold house never left its tile.");
+            foreach (GameObject piece in board.BuildingPieces(town)) Assert.IsFalse(piece.activeSelf, "A building stays on a sold town.");
+            Assert.IsFalse(board.MarkerShown(town), "The plot stays on a sold town.");
+            Assert.Less((house.localPosition - rest).magnitude, 1e-3f, "The house's model is not put back where it rests.");
+            Assert.Less((house.localScale - size).magnitude, 1e-3f, "The house's model does not get its size back.");
+
+            // A floor torn off by a card: the house falls in where it stands, dust rises, and the lower house then stands
+            // with no plot.
+            board.SetOwner(town, Color.red);
+            board.SetBuildingLevel(town, 2);
+            yield return null;
+            Transform lower = board.BuildingPieces(town)[0].transform;
+            board.SetBuildingLevel(town, 1, animate: true, leaving: Leaving.Demolished);
+            Assert.AreEqual(1, board.LeavingCount);
+            Assert.IsTrue(house.gameObject.activeSelf, "The torn-down house is gone at once.");
+            Assert.IsFalse(lower.gameObject.activeSelf, "The lower house stands inside the one still falling.");
+            bool dust = false;
+            foreach (LeavingBurst burst in board.GetComponentsInChildren<LeavingBurst>()) dust |= burst.How == Leaving.Demolished;
+            Assert.IsTrue(dust, "A torn-down house falls without dust.");
+            float lowest = 1f;
+            highest = 0f;
+            started = Time.realtimeSinceStartup;
+            while ((board.LeavingCount > 0 || !lower.gameObject.activeSelf) && Time.realtimeSinceStartup - started < 10f)
+            {
+                highest = Mathf.Max(highest, house.localPosition.y - rest.y);
+                if (house.gameObject.activeSelf) lowest = Mathf.Min(lowest, house.localScale.y / size.y);
+                yield return null;
+            }
+
+            Assert.AreEqual(0, board.LeavingCount, "The torn-down house never finished falling.");
+            Assert.AreEqual(0f, highest, 1e-4f, "The torn-down house left the ground.");
+            Assert.Less(lowest, 0.5f, "The torn-down house never fell in.");
+            Assert.IsFalse(house.gameObject.activeSelf, "The torn-down house stays.");
+            Assert.IsTrue(lower.gameObject.activeSelf, "The lower house does not stand after the floor is gone.");
+            Assert.IsFalse(board.MarkerShown(town), "The plot shows beside a house.");
+
+            // The bursts clear themselves away; the board is as it was.
+            started = Time.realtimeSinceStartup;
+            while (board.GetComponentInChildren<LeavingBurst>() != null && Time.realtimeSinceStartup - started < 10f) yield return null;
+            Assert.IsNull(board.GetComponentInChildren<LeavingBurst>(), "A burst never clears itself away.");
+            board.SetBuildingLevel(town, 0);
+            board.ClearOwner(town, animate: false);
+            Assert.IsFalse(board.MarkerShown(town));
         }
 
         private static bool Press(Transform root, string label)

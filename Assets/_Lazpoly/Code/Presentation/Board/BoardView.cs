@@ -860,20 +860,93 @@ namespace Lazpoly.Presentation.Tabletop
         }
 
         /// <summary>
-        /// Takes a square back from its owner. With <paramref name="animate"/>, the flag shrinks into
-        /// the tile first (a sale); without, the marker simply goes.
+        /// Takes a square back from its owner. With <paramref name="animate"/>, what marks it (the plot, or a factory
+        /// city's factory) leaves first the way a building does (<paramref name="leaving"/>: sold, or torn down by a
+        /// card); without, the marker simply goes. A town whose building is leaving just now has no marker to show.
         /// </summary>
-        public void ClearOwner(int squareIndex, bool animate)
+        public void ClearOwner(int squareIndex, bool animate, Leaving leaving = Leaving.Sold)
         {
             OwnerMarker flag = _ownerMarkers[squareIndex];
             if (flag == null) return;
             if (animate && flag.gameObject.activeInHierarchy && _animating.Add(flag.transform))
             {
-                StartCoroutine(Lower(flag.transform, _flagScale[squareIndex], () => SetOwner(squareIndex, null)));
+                Transform marker = flag.transform;
+                Vector3 size = _flagScale[squareIndex];
+                Color? leaver = _ownerColors[squareIndex];
+                StartCoroutine(Leave(marker, marker.localPosition, size, leaving, WallColorOf(squareIndex), () =>
+                {
+                    // A town bought again while its old marker was still leaving keeps its new owner.
+                    if (_ownerColors[squareIndex] == leaver) SetOwner(squareIndex, null);
+                }));
                 return;
             }
 
             SetOwner(squareIndex, null);
+        }
+
+        /// <summary>How high a sold building springs before it is gone, and how far a torn-down one trembles to its side, in tile widths.</summary>
+        public const float LeaveLift = 0.85f;
+        public const float LeaveShake = 0.022f;
+
+        /// <summary>The leavings under way now (<see cref="Leaving"/>): tests and the screen tour look at them.</summary>
+        public int LeavingCount { get; private set; }
+
+        /// <summary>Whether a square's owner marker (the plot, or a factory city's factory) stands on it now.</summary>
+        public bool MarkerShown(int squareIndex) => _ownerMarkers[squareIndex] != null && _ownerMarkers[squareIndex].gameObject.activeSelf;
+
+        /// <summary>The colour a square's rubble takes: its owner's, lightened as the walls are, or plain plaster.</summary>
+        private Color WallColorOf(int squareIndex) => BuildingModels.WallColor(_ownerColors[squareIndex]);
+
+        /// <summary>
+        /// Plays a building's (or a marker's) leaving from where it rests: it moves through <see cref="LeavingMotion"/>
+        /// while its burst flies (<see cref="LeavingBurst"/>), then stands as it was again, hidden or not as
+        /// <paramref name="then"/> decides.
+        /// </summary>
+        private IEnumerator Leave(Transform piece, Vector3 rest, Vector3 size, Leaving how, Color wall, System.Action then)
+        {
+            Quaternion facing = piece.localRotation;
+            float seconds = LeavingMotion.Seconds(how);
+            // The twinkle is where the sold building vanishes, up in the air; the dust at the foot of the one torn down.
+            Vector3 at = rest + Vector3.up * (how == Leaving.Sold ? _width * LeaveLift : _width * 0.06f);
+            LeavingBurst.Play(transform, at, _width, how, wall, seconds * LeavingMotion.BurstAt(how));
+            LeavingCount++;
+            for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
+            {
+                if (piece == null) break;
+                PoseLeaving(piece, rest, size, facing, LeavingMotion.At(how, t), _width);
+                yield return null;
+            }
+
+            LeavingCount--;
+            if (piece == null) yield break;
+            piece.localPosition = rest;
+            piece.localRotation = facing;
+            piece.localScale = size;
+            _animating.Remove(piece);
+            then?.Invoke();
+        }
+
+        /// <summary>Puts a piece at one moment of its leaving, on top of the place, turn and size it rests at, on a square <paramref name="width"/> wide.</summary>
+        public static void PoseLeaving(Transform piece, Vector3 rest, Vector3 size, Quaternion facing, LeavingPose pose, float width)
+        {
+            piece.localPosition = rest + Vector3.up * (pose.Lift * width * LeaveLift) + facing * Vector3.right * (pose.Shake * width * LeaveShake);
+            piece.localRotation = facing * Quaternion.Euler(pose.Tilt, pose.Turn, 0f);
+            piece.localScale = Vector3.Scale(size, pose.Scale);
+        }
+
+        /// <summary>
+        /// What stays on a square once a building has left shows again late in the leaving, growing up from the tile:
+        /// the lower house under a floor torn off, or the owner's plot when the last building went but the town did not.
+        /// </summary>
+        private IEnumerator Uncover(Transform piece, float seconds, System.Func<bool> shown)
+        {
+            piece.gameObject.SetActive(false);
+            yield return new WaitForSeconds(seconds);
+            if (piece == null) yield break;
+            _animating.Remove(piece);
+            bool show = shown();
+            piece.gameObject.SetActive(show);
+            if (show) yield return Raise(piece, piece.localScale);
         }
 
         private IEnumerator Lower(Transform flag, Vector3 size, System.Action then)
@@ -920,14 +993,19 @@ namespace Lazpoly.Presentation.Tabletop
 
         /// <summary>
         /// Shows the one building of a level: a house of one to four storeys, or the hotel at the top level.
-        /// With <paramref name="animate"/>, the new building drops onto the tile and bounces while the old one
-        /// shrinks away, and the plot folds down when the first building takes its place.
+        /// With <paramref name="animate"/>, a new, taller building drops onto the tile and bounces while the old one
+        /// shrinks away, and the plot folds down when the first building takes its place. A building that comes down
+        /// leaves in its own way (<paramref name="leaving"/>, the owner's wish, 2026-11-17): sold, it springs up and is
+        /// gone in a twinkle; torn down by a card, it falls in on itself in dust. What stays behind (a lower house, the
+        /// plot) shows again as it goes.
         /// </summary>
-        public void SetBuildingLevel(int squareIndex, int level, bool animate = false)
+        public void SetBuildingLevel(int squareIndex, int level, bool animate = false, Leaving leaving = Leaving.Sold)
         {
             GameObject[] pieces = _buildings[squareIndex];
             if (pieces == null) return;
 
+            bool down = level < _levels[squareIndex];
+            float uncover = LeavingMotion.Seconds(leaving) * LeavingMotion.UncoverAt;
             _levels[squareIndex] = level;
             PaintBuildings(squareIndex);
             for (int i = 0; i < pieces.Length; i++)
@@ -938,7 +1016,18 @@ namespace Lazpoly.Presentation.Tabletop
                 bool goes = !shown && pieces[i].activeSelf;
                 if (goes && animate && _animating.Add(piece))
                 {
-                    StartCoroutine(Shrink(piece, squareIndex, i));
+                    int index = i;
+                    StartCoroutine(down
+                        ? Leave(piece, _buildingRest[squareIndex][i], piece.localScale, leaving, WallColorOf(squareIndex), () => piece.gameObject.SetActive(PieceShown(squareIndex, index)))
+                        : Shrink(piece, squareIndex, i));
+                    continue;
+                }
+
+                if (appears && animate && down && _animating.Add(piece))
+                {
+                    int index = i;
+                    piece.localPosition = _buildingRest[squareIndex][i];
+                    StartCoroutine(Uncover(piece, uncover, () => PieceShown(squareIndex, index)));
                     continue;
                 }
 
@@ -956,6 +1045,15 @@ namespace Lazpoly.Presentation.Tabletop
             {
                 flag.gameObject.SetActive(true);
                 StartCoroutine(Lower(flag.transform, _flagScale[squareIndex], () => RefreshOwnerMarker(squareIndex)));
+            }
+            else if (animate && down && !flagWasUp && flag.gameObject.activeSelf && _animating.Add(flag.transform))
+            {
+                // The last building is leaving: the plot waits for it, and never shows if the town goes with it.
+                StartCoroutine(Uncover(flag.transform, uncover, () =>
+                {
+                    RefreshOwnerMarker(squareIndex);
+                    return flag.gameObject.activeSelf;
+                }));
             }
         }
 
@@ -995,6 +1093,8 @@ namespace Lazpoly.Presentation.Tabletop
             bool models = BuildingModels.IsAvailable;
             foreach (GameObject piece in pieces)
             {
+                // A building that is leaving keeps the colour it had: its town may have lost its owner already.
+                if (piece.activeSelf && _animating.Contains(piece.transform)) continue;
                 if (models)
                 {
                     BuildingModels.PaintOwner(piece, owner);

@@ -120,5 +120,8 @@ namespace Lazpoly.Presentation.Game
 
         /// <summary>Whether <paramref name="next"/> says the card just played hit a shield.</summary>
         public static bool Blocked(GameEvent next) => next is ShieldChangedEvent shield && shield.Blocked;
+
+        /// <summary>Whether a card tears buildings down where it is played (the whole town, or a floor): they then fall in on themselves instead of leaving as sold ones do.</summary>
+        public static bool TearsDown(CardKind kind) => kind == CardKind.Demolish || kind == CardKind.IllegalFloor;
     }
 }

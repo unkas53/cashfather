@@ -316,7 +316,13 @@ namespace Lazpoly.Presentation.Game
 
         /// <summary>The last strategic card played and the game time it was, for its card in the middle (Faz 30); null before any.</summary>
         public CardPlayedEvent ShownPlay { get; private set; }
+
         public float ShownPlayTime { get; private set; } = float.NegativeInfinity;
+
+        /// <summary>The square the card just played is tearing down (a demolition, an illegal floor); -1 otherwise. Its buildings fall in rather than leave as sold ones do.</summary>
+        private int _tornDown = -1;
+
+        private Leaving LeavingOf(int square) => square == _tornDown ? Leaving.Demolished : Leaving.Sold;
 
         /// <summary>Whether the card shown in <see cref="ShownPlay"/> was an attack a protection card's shield stopped.</summary>
         public bool ShownPlayBlocked { get; private set; }
@@ -1028,6 +1034,37 @@ namespace Lazpoly.Presentation.Game
         private bool _touring;
 
         /// <summary>
+        /// Shows a three-storey house leaving a town nobody owns (so the game itself is not touched): the picture is taken
+        /// with the clock held a little past the middle of the leaving, when its burst is in the air.
+        /// </summary>
+        private IEnumerator TourLeaving(Leaving how, string picture)
+        {
+            int town = -1;
+            for (int i = 0; i < _session.Board.Count && town < 0; i++)
+            {
+                SquareDefinition square = _session.Board[i];
+                if (square.Type == SquareType.Property && square.IsDevelopable && _session.State.GetOwner(i) == GameState.NoOwner) town = i;
+            }
+
+            if (town < 0) yield break;
+            _board.SetOwner(town, ColorOf(ScreenTour.PersonId));
+            _board.SetBuildingLevel(town, 3);
+            yield return null;
+            _board.SetBuildingLevel(town, 0, animate: true, leaving: how);
+            _board.ClearOwner(town, animate: true, leaving: how);
+            yield return new WaitForSeconds(LeavingMotion.Seconds(how) * TourLeavingAt);
+            float pace = Time.timeScale;
+            Time.timeScale = 0f;
+            yield return ScreenTour.Take(picture);
+            Time.timeScale = pace;
+            yield return ScreenTour.Until(() => _board.LeavingCount == 0, 3f);
+            yield return ScreenTour.Until(() => false, LeavingBurst.DustSeconds);
+        }
+
+        /// <summary>How far into a leaving the screen tour takes its picture.</summary>
+        public const float TourLeavingAt = 0.8f;
+
+        /// <summary>
         /// The table's part of the screen tour (<see cref="ScreenTour"/>): the city card the person stands at, the
         /// building card after buying, a square's card, then, once the computers have played and the roll is the
         /// person's again, the table and each window the game screen opens. Quits when done.
@@ -1311,6 +1348,10 @@ namespace Lazpoly.Presentation.Game
                 yield return ScreenTour.Take("kart-oynandi");
                 yield return ScreenTour.Until(() => !CenterNotice.Showing(Time.time - ShownPlayTime, CardPlay.Seconds), CardPlay.Seconds + 1f);
             }
+
+            // A building leaving (the owner's wish, 2026-11-17), caught on its way: sold, and torn down.
+            yield return TourLeaving(Leaving.Sold, "bina-satis");
+            yield return TourLeaving(Leaving.Demolished, "bina-yikim");
 
             // The other cards in the middle, one of each (the owner's wish, 2026-11-09): a drawn money card and a drawn
             // strategy card, a trade's result and a player who cannot pay.
@@ -1758,9 +1799,11 @@ namespace Lazpoly.Presentation.Game
                 switch (gameEvent)
                 {
                     case TurnStartedEvent turn:
+                        _tornDown = -1;
                         yield return ShowTurnStart(turn.PlayerId);
                         break;
                     case DiceRolledEvent rolled:
+                        _tornDown = -1;
                         AudioPlayer.Play(SoundCue.DiceShake);
                         yield return _dice.Roll(rolled.Die1, rolled.Die2, CameraRig != null ? CameraRig.Yaw : 0f);
                         AudioPlayer.Play(SoundCue.DiceLand);
@@ -1817,6 +1860,8 @@ namespace Lazpoly.Presentation.Game
                         // meets a shield says so on the same card.
                         ShownPlay = played;
                         ShownPlayBlocked = CardPlay.Blocked(_pendingEvents.Count > 0 ? _pendingEvents.Peek() : null);
+                        // What an attack tears down falls in on itself; what is sold springs away (the owner's wish, 2026-11-17).
+                        _tornDown = !ShownPlayBlocked && CardPlay.TearsDown(_session.Board.Cards[played.CardIndex].Kind) ? played.Target : -1;
                         ShownPlayMoney = ShownPlayBlocked ? 0 : CardMoney(played.PlayerId, _pendingEvents, cardOnly: false);
                         ShownPlayTime = Time.time;
                         // A card used as it was drawn takes the drawn card's place in the middle.
@@ -1900,7 +1945,8 @@ namespace Lazpoly.Presentation.Game
                         _board.SetStrike(owner.SquareIndex, false, animate: true);
                         if (owner.NewOwnerId == GameState.NoOwner)
                         {
-                            _board.ClearOwner(owner.SquareIndex, animate: true);
+                            _board.ClearOwner(owner.SquareIndex, animate: true, leaving: LeavingOf(owner.SquareIndex));
+                            if (owner.SquareIndex == _tornDown) _tornDown = -1; // The town is gone: the card's work is done.
                             ShowRents();
                             break;
                         }
@@ -1942,7 +1988,7 @@ namespace Lazpoly.Presentation.Game
                         }
 
                         if (building.Level > _board.LevelOf(building.SquareIndex)) Pawn(_session.State.GetOwner(building.SquareIndex))?.Cheer();
-                        _board.SetBuildingLevel(building.SquareIndex, building.Level, animate: true);
+                        _board.SetBuildingLevel(building.SquareIndex, building.Level, animate: true, leaving: LeavingOf(building.SquareIndex));
                         ShowRents();
                         if (building.Level >= SquareDefinition.MaxBuildingLevel) AudioPlayer.Play(SoundCue.Hotel);
                         break;

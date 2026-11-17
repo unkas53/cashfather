@@ -468,8 +468,11 @@ namespace Lazpoly.Presentation.Tabletop
             return Physics.Raycast(ray, out RaycastHit hit, 500f) && _squareOfCollider.TryGetValue(hit.collider, out squareIndex);
         }
 
-        /// <summary>How far the squares outside a choice darken towards black (<see cref="Highlight"/> with dimOthers).</summary>
+        /// <summary>How far the squares outside a choice darken towards black, and what stands on them with them (<see cref="Highlight"/> with dimOthers).</summary>
         public const float DimAmount = 0.55f;
+
+        /// <summary>How far the squares of a hovered town's group are lit towards white.</summary>
+        public const float GroupLift = 0.25f;
 
         /// <summary>
         /// How far a glowing square turns to its player's colour at the top of a pulse, and how many pulses a
@@ -480,6 +483,8 @@ namespace Lazpoly.Presentation.Tabletop
         public const float GlowPulsesPerSecond = 2.2f;
 
         private bool _dimOthers;
+        private bool[] _shaded;
+        private GameObject[] _scenes;
         private int _glowSquare = -1;
         private Color _glowColor;
 
@@ -487,15 +492,45 @@ namespace Lazpoly.Presentation.Tabletop
         public int GlowingSquare => _glowSquare;
 
         /// <summary>
-        /// Lights up these squares; null or empty shows the board normally. With <paramref name="dimOthers"/>
-        /// the rest of the board goes dark, for a choice where only the lit squares may be picked (a ride).
-        /// Otherwise the rest keeps its colour: a hovered group darkening the board reads as a mistake.
+        /// Marks these squares out; null or empty shows the board normally. With <paramref name="dimOthers"/> they stay
+        /// as they are and the rest of the board goes dark, buildings and all, for a choice where only they may be picked
+        /// (a ride, the cup, a card's town, a sale): the owner's wish, 2026-11-17, in place of lighting them. Otherwise
+        /// they are lit and the rest keeps its colour: a hovered group darkening the board reads as a mistake.
         /// </summary>
         public void Highlight(ICollection<int> squares, bool dimOthers = false)
         {
             _highlighted = squares == null || squares.Count == 0 ? null : new HashSet<int>(squares);
             _dimOthers = dimOthers && _highlighted != null;
-            for (int i = 0; i < _tiles.Length; i++) PaintSquare(i);
+            for (int i = 0; i < _tiles.Length; i++)
+            {
+                PaintSquare(i);
+                bool dark = _dimOthers && !_highlighted.Contains(i);
+                if (dark == _shaded[i]) continue;
+                _shaded[i] = dark;
+                ShadeStanding(i, dark ? DimAmount : 0f);
+            }
+        }
+
+        /// <summary>Whether a square is dark now because a choice leaves it out.</summary>
+        public bool IsDimmed(int squareIndex) => _shaded != null && squareIndex >= 0 && squareIndex < _shaded.Length && _shaded[squareIndex];
+
+        /// <summary>
+        /// Darkens (or gives its colours back to) what stands on a square: its buildings, the owner's plot or factory, a
+        /// card's mark, the cup beside a town, a corner's scene and the bus at its stop. The pawns keep their colours.
+        /// </summary>
+        private void ShadeStanding(int square, float amount)
+        {
+            if (_buildings[square] != null)
+            {
+                foreach (GameObject piece in _buildings[square]) SquareShade.Apply(piece, amount);
+            }
+
+            if (_ownerMarkers[square] != null) SquareShade.Apply(_ownerMarkers[square].gameObject, amount);
+            if (_shieldMarks.TryGetValue(square, out Transform shield) && shield != null) SquareShade.Apply(shield.gameObject, amount);
+            if (_strikeMarks.TryGetValue(square, out Transform strike) && strike != null) SquareShade.Apply(strike.gameObject, amount);
+            if (_cupSquare == square && _cupTrophy != null) SquareShade.Apply(_cupTrophy.gameObject, amount);
+            if (_scenes[square] != null) SquareShade.Apply(_scenes[square], amount);
+            if (_stationCorner == square && _bus != null) SquareShade.Apply(_bus.gameObject, amount);
         }
 
         /// <summary>
@@ -521,16 +556,17 @@ namespace Lazpoly.Presentation.Tabletop
             PaintTile(_tiles[square], Color.Lerp(Shown(square, _tileColors[square]), _glowColor, glow));
         }
 
-        /// <summary>A colour of a square with the current highlight: lit when chosen, dark when a choice leaves it out.</summary>
+        /// <summary>A colour of a square with the current highlight: lit in a hovered group, its own in a choice, dark when a choice leaves it out.</summary>
         private Color Shown(int square, Color color)
         {
             if (_highlighted == null) return color;
             if (_highlighted.Contains(square))
             {
-                float lift = _dimOthers ? 0.35f : 0.25f;
+                // A choice leaves its squares as they are (the owner's wish, 2026-11-17); only a hovered group is lit.
+                if (_dimOthers) return color;
                 // A town's colours are in its texture and it is drawn white, so it is lit by drawing it brighter than white.
-                if (_printed[square]) return new Color(1f + lift, 1f + lift, 1f + lift, 1f);
-                return Color.Lerp(color, Color.white, lift);
+                if (_printed[square]) return new Color(1f + GroupLift, 1f + GroupLift, 1f + GroupLift, 1f);
+                return Color.Lerp(color, Color.white, GroupLift);
             }
             return _dimOthers ? Color.Lerp(color, Color.black, DimAmount) : color;
         }
@@ -879,6 +915,9 @@ namespace Lazpoly.Presentation.Tabletop
         /// <summary>The building level the board shows on a square now.</summary>
         public int LevelOf(int squareIndex) => _levels[squareIndex];
 
+        /// <summary>A town's building models, one for each level (the ones not built are hidden); null on a square nothing is built on.</summary>
+        public IReadOnlyList<GameObject> BuildingPieces(int squareIndex) => _buildings[squareIndex];
+
         /// <summary>
         /// Shows the one building of a level: a house of one to four storeys, or the hotel at the top level.
         /// With <paramref name="animate"/>, the new building drops onto the tile and bounces while the old one
@@ -1026,6 +1065,8 @@ namespace Lazpoly.Presentation.Tabletop
             _levels = new int[board.Count];
             _ownerColors = new Color?[board.Count];
             _buildings = new GameObject[board.Count][];
+            _shaded = new bool[board.Count];
+            _scenes = new GameObject[board.Count];
             _buildingRest = new Vector3[board.Count][];
             _tiles = new GameObject[board.Count];
             _tileColors = new Color[board.Count];
@@ -1395,6 +1436,7 @@ namespace Lazpoly.Presentation.Tabletop
         {
             GameObject scene = CornerParts.For(type, $"Scene {type}", transform);
             if (scene == null) return;
+            _scenes[index] = scene;
             bool far = FacesAway(outward);
             bool cup = type == SquareType.Cup;
             scene.transform.localPosition = center + SceneSide(index, far) * (side * SceneOffset)

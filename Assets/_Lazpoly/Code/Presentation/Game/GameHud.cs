@@ -1141,12 +1141,13 @@ namespace Lazpoly.Presentation.Game
 
             if (key == _choicesKey) return;
             _choicesKey = key;
-            // A ride and the cup light their squares and darken the rest; a sale rings the towns instead.
-            bool ride = choices != null && (ChoosingRide(state) || ChoosingCup(state) || _cards.Aiming(state) != CardHand.NoCard);
-            _controller.Markers?.ShowChoices(ride ? null : choices);
+            // Every choice on the board leaves its squares as they are and darkens the rest, buildings and all (the owner's
+            // wish, 2026-11-17: no lighting up); a sale rings its towns as well.
+            bool pick = choices != null && (ChoosingRide(state) || ChoosingCup(state) || _cards.Aiming(state) != CardHand.NoCard);
+            _controller.Markers?.ShowChoices(pick ? null : choices);
             // The group light under the mouse is drawn again from scratch once the choice is over.
             _highlightedFor = ChoiceHighlight;
-            _controller.Board?.Highlight(choices, dimOthers: ride);
+            _controller.Board?.Highlight(choices, dimOthers: true);
         }
 
         /// <summary>Stands in <see cref="_highlightedFor"/> while the board lights a choice rather than a group.</summary>

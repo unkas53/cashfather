@@ -332,10 +332,11 @@ namespace Lazpoly.Presentation.Game
         {
             CardDefinition definition = board.Cards[card];
             bool chosen = picked >= 0 && GameRules.CardTargets(board, state, state.CurrentPlayer, card).Contains(picked);
-            string note = chosen && definition.IsAttack && state.HasShield(picked) ? L("Bu şehirde koruma kalkanı var: saldırın durur, kalkan kalkar.") : null;
+            string town = chosen ? L(board[picked].Name) : null;
+            string note = chosen && definition.IsAttack && state.HasShield(picked) ? F($"{town}: koruma kalkanı var. Saldırın durur, kalkan kalkar.") : null;
             Color ribbon = Color.Lerp(CardArt.ToneColor(CardArt.ToneFor(definition.Kind)), Color.white, RibbonLift);
             return new BoardPick(CardPlay.Name(board, card), CardArt.Family(definition.Kind) ?? L("Kart"), ribbon, AimHint(definition.Aim),
-                chosen ? L(board[picked].Name) : null, note, chosen ? PlayLabel(board, definition, picked) : L("Oyna"), L("Vazgeç"));
+                town, note, chosen ? PlayLabel(board, definition, picked) : L("Oyna"), L("Vazgeç"));
         }
 
         private static string AimHint(CardTarget aim)

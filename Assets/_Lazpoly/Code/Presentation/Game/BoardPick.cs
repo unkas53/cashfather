@@ -44,7 +44,7 @@ namespace Lazpoly.Presentation.Game
         /// <summary>What the picked square means; null while nothing that may be picked is.</summary>
         public string Chosen { get; }
 
-        /// <summary>A warning about the picked square (a shield in an attack's way); null without one.</summary>
+        /// <summary>A warning about the picked square, said in its place (a shield in an attack's way); null without one.</summary>
         public string Note { get; }
 
         /// <summary>The button that goes through with it, and the one that does not.</summary>
@@ -54,8 +54,8 @@ namespace Lazpoly.Presentation.Game
         /// <summary>Whether a square that may be picked is: only then can the pick be confirmed.</summary>
         public bool Ready => Chosen != null;
 
-        /// <summary>The line under the band: the picked square (with its warning on a second line), or what to do.</summary>
-        public string Line => Chosen == null ? Prompt : Note == null ? Chosen : Chosen + "\n" + Note;
+        /// <summary>The line under the band: the picked square (or the warning about it, which names it), or what to do.</summary>
+        public string Line => Chosen == null ? Prompt : Note ?? Chosen;
 
         /// <summary>
         /// A ride from the travel square at <paramref name="from"/>: the fee in the band, the destination once one of

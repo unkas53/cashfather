@@ -1081,8 +1081,16 @@ namespace Lazpoly.Presentation.Game
             {
                 hud.StagePick(GamePhase.AwaitingTravelDecision, _board.StationSquare);
                 yield return ScreenTour.Take("otogar-secim");
-                int far = (_board.StationSquare + _session.Board.Count / 2 - 3) % _session.Board.Count;
-                if (GameRules.IsRideDestination(_session.Board, _session.State, _session.State.FindPlayer(person), far)) hud.PinSquare(far);
+                // The first town the bus may go to from about half the board away.
+                int far = -1;
+                for (int step = 0; step < _session.Board.Count && far < 0; step++)
+                {
+                    int square = (_board.StationSquare + _session.Board.Count / 2 - 3 + step) % _session.Board.Count;
+                    bool town = _session.Board[square].Type == SquareType.Property;
+                    if (town && GameRules.IsRideDestination(_session.Board, _session.State, _session.State.CurrentPlayer, square)) far = square;
+                }
+
+                if (far >= 0) hud.PinSquare(far);
                 yield return ScreenTour.Take("otogar-secildi");
             }
 

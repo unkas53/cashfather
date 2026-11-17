@@ -141,6 +141,19 @@ namespace Lazpoly.Presentation.Tests
         }
 
         [Test]
+        public void ALongTitleGetsSmallerLettersInsteadOfASecondLine()
+        {
+            // On the PC the cup's title wrapped and spilled out of the band (2026-11-17); it is one line now.
+            int size = PropertyCard.TitleFontSize;
+            Assert.AreEqual(size, BoardPickView.FittedSize(size, 150f, BoardPickView.TitleWidth, BoardPickView.MinTitleFontSize), "a short title keeps its letters");
+            Assert.AreEqual(size, BoardPickView.FittedSize(size, BoardPickView.TitleWidth, BoardPickView.TitleWidth, BoardPickView.MinTitleFontSize));
+            int smaller = BoardPickView.FittedSize(size, 360f, BoardPickView.TitleWidth, BoardPickView.MinTitleFontSize);
+            Assert.Less(smaller, size);
+            Assert.LessOrEqual(360f * smaller / size, BoardPickView.TitleWidth, "at the new size the title fits its room");
+            Assert.AreEqual(BoardPickView.MinTitleFontSize, BoardPickView.FittedSize(size, 5000f, BoardPickView.TitleWidth, BoardPickView.MinTitleFontSize), "never unreadably small");
+        }
+
+        [Test]
         public void ACardsTownIsPickedOnTheSameCard()
         {
             int paris = Town("Paris");
@@ -170,11 +183,13 @@ namespace Lazpoly.Presentation.Tests
             Assert.AreEqual(Board[mine].Name, own.Line);
             StringAssert.Contains(Board[mine].Name, own.ConfirmLabel);
 
-            // An attack on a shielded town says so under the town's name.
+            // An attack on a shielded town says so in the town's line.
             BoardPick attack = CardHand.PickFor(Board, state, demolish, paris);
             Assert.IsTrue(attack.Ready);
             Assert.IsNotNull(attack.Note);
-            Assert.AreEqual("Paris\n" + attack.Note, attack.Line);
+            Assert.AreEqual("Paris", attack.Chosen);
+            StringAssert.StartsWith("Paris: ", attack.Note);
+            Assert.AreEqual(attack.Note, attack.Line, "the warning names the town, so it stands in its place");
             Assert.Greater(attack.Tone.r, CardArt.ToneColor(CardArt.ToneFor(CardKind.Demolish)).r, "the ribbon is lighter than the family's deep colour");
         }
     }

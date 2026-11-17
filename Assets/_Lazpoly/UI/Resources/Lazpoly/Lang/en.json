@@ -729,7 +729,7 @@
   "{0} yatır": "Invest {0}",
   "Oyna": "Play",
   "Tahtadan seç": "Pick on board",
-  "Bu şehirde koruma kalkanı var: saldırın durur, kalkan kalkar.": "This town has a protection shield: your attack stops and the shield goes.",
+  "{0}: koruma kalkanı var. Saldırın durur, kalkan kalkar.": "{0}: it has a shield. Your attack stops and the shield goes.",
   "Önce tahtadan bir yer seç": "Pick a square first",
   "Tahtada parlayan şehirlerinden birine tıkla.": "Click one of your glowing towns on the board.",
   "Tahtada parlayan sahipsiz şehir ya da fabrika şehirlerinden birine tıkla.": "Click one of the glowing unowned towns or factory cities on the board.",

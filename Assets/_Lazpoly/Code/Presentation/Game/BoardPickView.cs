@@ -17,10 +17,10 @@ namespace Lazpoly.Presentation.Game
     /// </summary>
     public sealed class BoardPickView
     {
-        /// <summary>The card's width, its padding and the height of the line under its band, in reference pixels: small enough to stay on the lawn at every supported screen.</summary>
+        /// <summary>The card's width, its padding and the height of the line under its band (two small lines), in reference pixels: small enough to stay on the lawn at every supported screen.</summary>
         public const float CardWidth = 400f;
         public const int CardPadding = 14;
-        public const float LineHeight = 36f;
+        public const float LineHeight = 44f;
 
         /// <summary>The card's height: its band, its line and its buttons, with the gaps between and the padding round them.</summary>
         public const float CardHeight = 2f * CardPadding + PropertyCard.BandHeight + LineHeight + UiLayout.CardButtonHeight + 2f * UiTheme.Spacing;
@@ -29,6 +29,13 @@ namespace Lazpoly.Presentation.Game
         public const float TagWidth = 156f;
         public const float TagHeight = 38f;
         public const int TagFontSize = 18;
+
+        /// <summary>
+        /// The room the band leaves its title (the card less its padding, the band's own, the ribbon and the gap after
+        /// it), and the smallest letters a long title ("ŞAMPİYONLAR KUPASI") is brought down to so it stays on one line.
+        /// </summary>
+        public const float TitleWidth = CardWidth - 2f * CardPadding - 30f - 12f - 14f;
+        public const int MinTitleFontSize = 20;
 
         private const int NoSquare = -1;
 
@@ -114,14 +121,29 @@ namespace Lazpoly.Presentation.Game
         private void RenderCard(UiBuilder ui)
         {
             if (_pick == null) return;
-            PropertyCard.Band(ui, _pick.Title, _pick.Eyebrow, _pick.Tone, null, null);
+            FitOnOneLine(PropertyCard.Band(ui, _pick.Title, _pick.Eyebrow, _pick.Tone, null, null), TitleWidth, MinTitleFontSize);
             Text line = ui.Label(_pick.Line, UiTextStyle.Small, UiTheme.Text, TextAnchor.MiddleCenter);
             line.font = UiTheme.BoldFont;
             UiBuilder.Fix(line, height: LineHeight);
-            UiBuilder.ShrinkToFit(line); // A long town name gets smaller, never a third line.
+            UiBuilder.ShrinkToFit(line);
             // The buttons do whatever the screen was last given, so a card drawn for one square never confirms another.
             ui.Actions(_pick.CancelLabel, () => _cancel?.Invoke(), _pick.ConfirmLabel, () => _confirm?.Invoke(), _pick.Ready && _allowed);
         }
+
+        /// <summary>
+        /// Keeps a title on one line: its letters as they are while it fits <paramref name="width"/>, smaller by as much
+        /// as it is too long otherwise (never under <paramref name="minSize"/>). A wrapped title would spill out of the band.
+        /// </summary>
+        public static void FitOnOneLine(Text text, float width, int minSize)
+        {
+            text.resizeTextForBestFit = false;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.fontSize = FittedSize(text.fontSize, text.preferredWidth, width, minSize);
+        }
+
+        /// <summary>The letter size at which a line that is <paramref name="wanted"/> wide at <paramref name="size"/> fits <paramref name="width"/>: the same while it fits, never under <paramref name="minSize"/>.</summary>
+        public static int FittedSize(int size, float wanted, float width, int minSize) =>
+            wanted <= width ? size : Mathf.Max(Mathf.Min(size, minSize), Mathf.FloorToInt(size * width / wanted));
 
         /// <summary>Puts a plate over a square of the board with the square's name on it, its point on the square; away for no square or one behind the view.</summary>
         private void Stand(Plate plate, int square)

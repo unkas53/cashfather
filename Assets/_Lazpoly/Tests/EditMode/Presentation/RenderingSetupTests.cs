@@ -440,7 +440,8 @@ namespace Lazpoly.Presentation.Tests
             float reach = (halfWidth + Mathf.Abs(middle.x)) / across + (halfHeight + Mathf.Abs(middle.y)) / up;
             Assert.LessOrEqual(reach, 1f, "The card's corners lie on the squares.");
             if (width / height > 1.7f) Assert.LessOrEqual(reach, BoardView.LawnShare, "On a wide screen the card stays on the grass, clear of the road.");
-            Assert.AreEqual(216f, BoardPickView.CardHeight, 0.01f, "the band, the line and the buttons with their gaps");
+            Assert.AreEqual(224f, BoardPickView.CardHeight, 0.01f, "the band, the line and the buttons with their gaps");
+            Assert.AreEqual(316f, BoardPickView.TitleWidth, 0.01f, "the band's room for its title");
         }
 
         [Test]

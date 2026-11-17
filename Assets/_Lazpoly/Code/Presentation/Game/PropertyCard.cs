@@ -140,7 +140,7 @@ namespace Lazpoly.Presentation.Game
         /// close mark at the right (none for a card that cannot be closed: no <paramref name="close"/>); the square card
         /// and the sale card open the same way.
         /// </summary>
-        public static void Band(UiBuilder ui, string title, string subtitle, Color color, string mark, Action close)
+        public static Text Band(UiBuilder ui, string title, string subtitle, Color color, string mark, Action close)
         {
             UiBuilder band = ui.Row(14f, expand: false);
             UiRoot.Banner(band.Container, BandHeight);
@@ -169,6 +169,7 @@ namespace Lazpoly.Presentation.Game
             UiBuilder.ShrinkToFit(name); // A long name gets smaller, never a second line.
 
             if (close != null) band.CloseMark(close, UiPalette.Ink.OnMasthead);
+            return name;
         }
 
         /// <summary>

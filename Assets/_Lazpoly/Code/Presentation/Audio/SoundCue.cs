@@ -54,9 +54,11 @@ namespace Lazpoly.Presentation.Audio
         /// The sound played when an event is shown, or <see cref="SoundCue.None"/>. One action that
         /// sends several events sounds once: a purchase plays on its payment, not on the owner change,
         /// and rent plays on the payer's side only. Dice, steps and the turn banner are timed by
-        /// their animations instead; the hotel and the quiet turn-pass note are played by the scene too,
+        /// their animations instead; the quiet turn-pass note is played by the scene too,
         /// the bus's sounds by its ride (<see cref="Pawns.BusTrip"/>), the jail's gate by the piece that goes
-        /// through it (<see cref="ForJailGate"/>) and a building's leaving by its animation (<see cref="ForLeaving"/>).
+        /// through it (<see cref="ForJailGate"/>), and a building's going up and its leaving by their animations
+        /// (<see cref="ForRising"/>, <see cref="ForLeaving"/>): building is paid for with the sound of money, and the
+        /// hammer is heard when the building rises, after the payment has flown.
         /// </summary>
         public static SoundCue For(GameEvent gameEvent)
         {
@@ -81,7 +83,6 @@ namespace Lazpoly.Presentation.Audio
             {
                 case MoneyReason.PropertyPurchase: return SoundCue.Buy;
                 case MoneyReason.Takeover: return e.Delta < 0 ? SoundCue.Buy : SoundCue.MoneyIn;
-                case MoneyReason.Building: return SoundCue.Build;
                 case MoneyReason.BuildingSale: return SoundCue.Sell;
                 case MoneyReason.PropertySale: return SoundCue.PropertySale;
                 case MoneyReason.PassedStart: return SoundCue.PassStart;
@@ -89,6 +90,7 @@ namespace Lazpoly.Presentation.Audio
                 case MoneyReason.Card:
                 case MoneyReason.Fund:
                     return e.Delta > 0 ? SoundCue.MoneyIn : SoundCue.MoneyOut;
+                case MoneyReason.Building:
                 case MoneyReason.Travel:
                 case MoneyReason.Cup:
                 case MoneyReason.Audit:
@@ -104,6 +106,13 @@ namespace Lazpoly.Presentation.Audio
 
         /// <summary>The jail's gate as a piece goes through it: the bolt and the hinges as it opens, the strike and the lock as it shuts.</summary>
         public static SoundCue ForJailGate(bool opening) => opening ? SoundCue.JailOpen : SoundCue.JailShut;
+
+        /// <summary>
+        /// A building going up, heard from the moment it starts to (the owner's wish, 2026-11-18: in time with the
+        /// hammer): the two blows it rises in (<see cref="RisingMotion.KnockGap"/>), and for a hotel the blows and
+        /// then its tune as it stands.
+        /// </summary>
+        public static SoundCue ForRising(bool grand) => grand ? SoundCue.Hotel : SoundCue.Build;
 
         /// <summary>
         /// A building leaving its square, heard from the moment it starts to go (the clips are cut to the animation,

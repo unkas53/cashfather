@@ -341,6 +341,12 @@ namespace Lazpoly.Presentation.Game
         /// <summary>How long ago a sold building's sound started; below 0 when the last leaving heard was not a sale.</summary>
         private float SinceSoldLeaving => _leavingHeard == Leaving.Sold ? Time.unscaledTime - _leavingHeardAt : -1f;
 
+        /// <summary>A building starts to go up: the hammer is heard with it, blow for blow (the owner's wish, 2026-11-18).</summary>
+        private static void OnRisingStarted(bool grand) => AudioPlayer.Play(SoundCues.ForRising(grand));
+
+        /// <summary>The time between two towns of the wave now running (<see cref="LeavingWave"/>); 0 when none is.</summary>
+        private float _waveStep;
+
         /// <summary>Whether the card shown in <see cref="ShownPlay"/> was an attack a protection card's shield stopped.</summary>
         public bool ShownPlayBlocked { get; private set; }
 
@@ -857,6 +863,7 @@ namespace Lazpoly.Presentation.Game
             GameState state = _session.State;
             _board = BoardView.Create(transform, _data);
             _board.LeavingStarted += OnLeavingStarted;
+            _board.RisingStarted += OnRisingStarted;
             StartCoroutine(Lazpoly.Presentation.Models.MoneyBundle.Preload()); // Read over the first frames, ready before the first payment.
             Markers = SquareMarkers.Create(_board);
             // The dice land on the lawn, below the middle of the screen so they stay clear of the score.
@@ -1051,35 +1058,99 @@ namespace Lazpoly.Presentation.Game
 
         private bool _touring;
 
+        /// <summary>The towns nobody owns that can be built on, at most <paramref name="most"/> of them from the Start on: the tour's stage (the game itself is not touched).</summary>
+        private List<int> TourTowns(int most)
+        {
+            var towns = new List<int>();
+            for (int i = 0; i < _session.Board.Count && towns.Count < most; i++)
+            {
+                SquareDefinition square = _session.Board[i];
+                if (square.Type == SquareType.Property && square.IsDevelopable && _session.State.GetOwner(i) == GameState.NoOwner) towns.Add(i);
+            }
+
+            return towns;
+        }
+
+        /// <summary>Lets <paramref name="seconds"/> pass, then takes <paramref name="picture"/> with the clock held.</summary>
+        private static IEnumerator TourHold(string picture, float seconds)
+        {
+            float pace = Time.timeScale;
+            yield return new WaitForSeconds(seconds);
+            Time.timeScale = 0f;
+            yield return ScreenTour.Take(picture);
+            Time.timeScale = pace;
+        }
+
         /// <summary>
-        /// Shows a three-storey house leaving a town nobody owns (so the game itself is not touched). Two pictures are
-        /// taken with the clock held: <paramref name="first"/> seconds in, the house on its way, and
-        /// <paramref name="second"/> seconds in, what is left in the air once it has gone (named with "-2").
+        /// Shows a three-storey house leaving a town nobody owns. Two pictures are taken with the clock held:
+        /// <paramref name="first"/> seconds in, the house on its way, and <paramref name="second"/> seconds in, what
+        /// is left in the air once it has gone (named with "-2").
         /// </summary>
         private IEnumerator TourLeaving(Leaving how, string picture, float first, float second)
         {
-            int town = -1;
-            for (int i = 0; i < _session.Board.Count && town < 0; i++)
-            {
-                SquareDefinition square = _session.Board[i];
-                if (square.Type == SquareType.Property && square.IsDevelopable && _session.State.GetOwner(i) == GameState.NoOwner) town = i;
-            }
-
-            if (town < 0) yield break;
+            List<int> towns = TourTowns(1);
+            if (towns.Count == 0) yield break;
+            int town = towns[0];
             _board.SetOwner(town, ColorOf(ScreenTour.PersonId));
             _board.SetBuildingLevel(town, 3);
             yield return null;
             _board.SetBuildingLevel(town, 0, animate: true, leaving: how);
             _board.ClearOwner(town, animate: true, leaving: how);
-            float pace = Time.timeScale;
-            yield return new WaitForSeconds(first);
-            Time.timeScale = 0f;
-            yield return ScreenTour.Take(picture);
-            Time.timeScale = pace;
-            yield return new WaitForSeconds(second - first);
-            Time.timeScale = 0f;
-            yield return ScreenTour.Take(picture + "-2");
-            Time.timeScale = pace;
+            yield return TourHold(picture, first);
+            yield return TourHold(picture + "-2", second - first);
+            yield return ScreenTour.Until(() => _board.LeavingCount == 0 && _board.GetComponentInChildren<LeavingBurst>() == null, 6f);
+        }
+
+        /// <summary>
+        /// Shows a house going up on a town nobody owns (the owner's wish, 2026-11-18): at the first blow of the hammer,
+        /// half its height in its dust ("bina-insa"), after the second, at its height with the ring running out
+        /// ("bina-insa-2"), and then a hotel as it stands in its gold rings and white wreath ("otel-insa").
+        /// </summary>
+        private IEnumerator TourRising()
+        {
+            List<int> towns = TourTowns(1);
+            if (towns.Count == 0) yield break;
+            int town = towns[0];
+            System.Func<bool> stands = () => _board.RisingCount == 0 && _board.GetComponentInChildren<RisingBurst>() == null;
+            _board.SetOwner(town, ColorOf(ScreenTour.PersonId));
+            _board.SetBuildingLevel(town, 1);
+            yield return null;
+            _board.SetBuildingLevel(town, 2, animate: true);
+            yield return TourHold("bina-insa", 0.1f);
+            yield return TourHold("bina-insa-2", RisingMotion.KnockGap);
+            yield return ScreenTour.Until(stands, 6f);
+            _board.SetBuildingLevel(town, SquareDefinition.MaxBuildingLevel, animate: true);
+            yield return TourHold("otel-insa", RisingBurst.GrandBeat + 0.12f);
+            yield return ScreenTour.Until(stands, 6f);
+            _board.SetBuildingLevel(town, 0);
+            _board.ClearOwner(town, animate: false);
+        }
+
+        /// <summary>
+        /// Shows a bankrupt player's towns leaving one after another (the owner's wish, 2026-11-18), on four towns
+        /// nobody owns: the picture ("iflas-dalga") is taken just after the last has started to go, so the first is
+        /// gone into its dollar signs, the next two are on their way and the last still stands.
+        /// </summary>
+        private IEnumerator TourWave()
+        {
+            List<int> towns = TourTowns(4);
+            if (towns.Count < 2) yield break;
+            for (int i = 0; i < towns.Count; i++)
+            {
+                _board.SetOwner(towns[i], ColorOf(ScreenTour.PersonId));
+                _board.SetBuildingLevel(towns[i], 1 + i % 3);
+            }
+
+            yield return null;
+            float step = LeavingWave.Step(towns.Count);
+            for (int i = 0; i < towns.Count; i++)
+            {
+                _board.SetBuildingLevel(towns[i], 0, animate: true);
+                _board.ClearOwner(towns[i], animate: true);
+                if (i < towns.Count - 1) yield return new WaitForSeconds(step);
+            }
+
+            yield return TourHold("iflas-dalga", 0.1f);
             yield return ScreenTour.Until(() => _board.LeavingCount == 0 && _board.GetComponentInChildren<LeavingBurst>() == null, 6f);
         }
 
@@ -1371,6 +1442,10 @@ namespace Lazpoly.Presentation.Game
             // A building leaving (the owner's wish, 2026-11-17), caught on its way: sold, and torn down.
             yield return TourLeaving(Leaving.Sold, "bina-satis", 0.52f, 0.95f);
             yield return TourLeaving(Leaving.Demolished, "bina-yikim", 0.6f, 1f);
+
+            // A building going up, and a bankrupt player's towns leaving in a wave (the owner's wishes, 2026-11-18).
+            yield return TourRising();
+            yield return TourWave();
 
             // The other cards in the middle, one of each (the owner's wish, 2026-11-09): a drawn money card and a drawn
             // strategy card, a trade's result and a player who cannot pay.
@@ -1771,6 +1846,7 @@ namespace Lazpoly.Presentation.Game
             _playback = null;
             _playing = false;
             _pendingEvents.Clear();
+            _waveStep = 0f;
             _flownAlong.Clear();
             _paidGains.Clear();
             Markers?.HideTarget();
@@ -1967,6 +2043,10 @@ namespace Lazpoly.Presentation.Game
                             _board.ClearOwner(owner.SquareIndex, animate: true, leaving: LeavingOf(owner.SquareIndex));
                             if (owner.SquareIndex == _tornDown) _tornDown = -1; // The town is gone: the card's work is done.
                             ShowRents();
+
+                            // A bankrupt player's towns go one after another, a wave round the board (the owner's wish, 2026-11-18).
+                            float wave = LeavingWave.Wait(owner, _pendingEvents, ref _waveStep);
+                            if (wave > 0f) yield return new WaitForSeconds(wave / Speed);
                             break;
                         }
 
@@ -2009,7 +2089,6 @@ namespace Lazpoly.Presentation.Game
                         if (building.Level > _board.LevelOf(building.SquareIndex)) Pawn(_session.State.GetOwner(building.SquareIndex))?.Cheer();
                         _board.SetBuildingLevel(building.SquareIndex, building.Level, animate: true, leaving: LeavingOf(building.SquareIndex));
                         ShowRents();
-                        if (building.Level >= SquareDefinition.MaxBuildingLevel) AudioPlayer.Play(SoundCue.Hotel);
                         break;
                     case PhaseChangedEvent phase:
                         // Leaving the buy decision without a purchase: the player let the square go, it stays with the bank.

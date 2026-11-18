@@ -645,6 +645,100 @@ namespace Lazpoly.PlayTests
             Assert.IsFalse(board.MarkerShown(town));
         }
 
+        [UnityTest]
+        public IEnumerator ABuildingGoesUpFromItsTileInDustToTheHammerAndCanLeaveBeforeItStands()
+        {
+            // The owner's wish (2026-11-18): a building moment in the manner of the sale and the tearing down (dust, the
+            // storey rising, in time with the hammer). The board is shown houses on a town nobody owns, so the game
+            // itself is not touched.
+            LocalGameSetup.SetSeats(LocalGameSetup.DefaultSeats(2));
+            SceneManager.LoadScene("Game");
+            yield return null;
+            yield return null;
+            var controller = Object.FindAnyObjectByType<GameSceneController>();
+            float started = Time.realtimeSinceStartup;
+            while (controller.IsBusy && Time.realtimeSinceStartup - started < 30f) yield return null;
+            BoardView board = controller.Board;
+            BoardDefinition squares = controller.Session.Board;
+            int town = -1;
+            // The last town of the board: no pawn reaches it from the start in the time the test takes.
+            for (int i = squares.Count - 1; i > 0 && town < 0; i--)
+            {
+                if (squares[i].Type == SquareType.Property && squares[i].IsDevelopable && controller.Session.State.GetOwner(i) == GameState.NoOwner) town = i;
+            }
+
+            Assert.GreaterOrEqual(town, 0, "The board has no free town.");
+            Time.timeScale = 2f; // Slow enough for the test to see a building on its way up, whatever the frame takes.
+
+            // A second storey: the new house comes up from the tile in its dust while the old one ducks away under it.
+            board.SetOwner(town, Color.red);
+            board.SetBuildingLevel(town, 1);
+            yield return null;
+            Transform old = board.BuildingPieces(town)[0].transform, house = board.BuildingPieces(town)[1].transform;
+            Vector3 oldSize = old.localScale, size = house.localScale, rest = house.localPosition;
+            int hammers = 0;
+            bool grand = false;
+            board.RisingStarted += hotel =>
+            {
+                hammers++;
+                grand = hotel;
+            };
+            board.SetBuildingLevel(town, 2, animate: true);
+            Assert.AreEqual(1, board.RisingCount, "The new house does not go up.");
+            Assert.AreEqual(1, hammers, "The scene is not told the house starts to rise.");
+            Assert.IsFalse(grand, "A house goes up as a hotel does.");
+            Assert.AreEqual(SoundCue.Build, AudioPlayer.LastCue, "A house goes up without the hammer.");
+            Assert.IsTrue(house.gameObject.activeSelf);
+            Assert.Less(house.localScale.y, size.y * 0.2f, "The new house does not start from the tile.");
+            Assert.IsTrue(old.gameObject.activeSelf, "The old house is gone at once rather than ducking away.");
+            RisingBurst dust = board.GetComponentInChildren<RisingBurst>();
+            Assert.IsNotNull(dust, "A house goes up without dust.");
+            Assert.IsFalse(dust.Grand);
+            float tallest = 0f, moved = 0f;
+            started = Time.realtimeSinceStartup;
+            while (board.RisingCount > 0 && Time.realtimeSinceStartup - started < 10f)
+            {
+                tallest = Mathf.Max(tallest, house.localScale.y / size.y);
+                moved = Mathf.Max(moved, (house.localPosition - rest).magnitude);
+                yield return null;
+            }
+
+            Assert.AreEqual(0, board.RisingCount, "The house never finished going up.");
+            Assert.Greater(tallest, 0.9f, "The house was never seen near its height on its way.");
+            Assert.Less(moved, 1e-3f, "A rising house leaves its place: it grows from its foot.");
+            Assert.Less((house.localScale - size).magnitude, 1e-3f, "The house does not stand at its size.");
+            Assert.IsFalse(old.gameObject.activeSelf, "The old house stays inside the new one.");
+            Assert.Less((old.localScale - oldSize).magnitude, 1e-3f, "The old house's model does not get its size back.");
+            Assert.IsFalse(board.MarkerShown(town), "The plot shows beside a house.");
+
+            // A hotel: its own sound, and a greater dust. Sold before it stands, it is whole at once, leaves as any
+            // building does, and its model is put back at its size.
+            int last = SquareDefinition.MaxBuildingLevel - 1;
+            Transform hotelPiece = board.BuildingPieces(town)[last].transform;
+            Vector3 hotelSize = hotelPiece.localScale;
+            board.SetBuildingLevel(town, SquareDefinition.MaxBuildingLevel, animate: true);
+            Assert.AreEqual(2, hammers);
+            Assert.IsTrue(grand, "The scene is not told a hotel is going up.");
+            Assert.AreEqual(SoundCue.Hotel, AudioPlayer.LastCue, "A hotel goes up without its own sound.");
+            bool greater = false;
+            foreach (RisingBurst burst in board.GetComponentsInChildren<RisingBurst>()) greater |= burst.Grand;
+            Assert.IsTrue(greater, "A hotel goes up in a house's dust.");
+            yield return null;
+            Assert.AreEqual(1, board.RisingCount, "The hotel stands at once.");
+            board.SetBuildingLevel(town, 0, animate: true, leaving: Leaving.Sold);
+            board.ClearOwner(town, animate: true, leaving: Leaving.Sold);
+            Assert.AreEqual(0, board.RisingCount, "A hotel that is leaving is still going up.");
+            Assert.AreEqual(1, board.LeavingCount, "A hotel sold as it goes up does not leave.");
+            started = Time.realtimeSinceStartup;
+            while ((board.LeavingCount > 0 || board.GetComponentInChildren<RisingBurst>() != null) && Time.realtimeSinceStartup - started < 10f) yield return null;
+            Assert.AreEqual(0, board.LeavingCount, "The hotel never finished leaving.");
+            Assert.IsNull(board.GetComponentInChildren<RisingBurst>(), "The dust never clears itself away.");
+            foreach (GameObject piece in board.BuildingPieces(town)) Assert.IsFalse(piece.activeSelf, "A building stays on a sold town.");
+            Assert.Less((hotelPiece.localScale - hotelSize).magnitude, 1e-3f, "The hotel's model does not get its size back.");
+            Assert.Less((house.localScale - size).magnitude, 1e-3f, "The house under the hotel does not get its size back.");
+            Assert.IsFalse(board.MarkerShown(town), "The plot stays on a sold town.");
+        }
+
         private static bool Press(Transform root, string label)
         {
             Button button = Find(root, label);

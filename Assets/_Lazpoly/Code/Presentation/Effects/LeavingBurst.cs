@@ -11,10 +11,9 @@ namespace Lazpoly.Presentation.Effects
     /// fade. Torn down: puffs at the jolt, then cartoon dust bursting out from the foot and up its height, a ring over
     /// the ground, grit, and rubble in the colour of its walls thrown out to bounce and lie. The clouds are the game's
     /// kind: clean shapes of two tones that pop out and dwindle away, not smoke. Everything see-through is a quad of one
-    /// mesh that faces the eye (<see cref="SoftParticle"/>, <see cref="SoftSprites"/>); the rubble is solid and casts
-    /// shadows. It clears itself away.
+    /// mesh that faces the eye (<see cref="SoftBurst"/>); the rubble is solid and casts shadows. It clears itself away.
     /// </summary>
-    public sealed class LeavingBurst : MonoBehaviour
+    public sealed class LeavingBurst : SoftBurst
     {
         public const int Poofs = 9;
         public const int Dollars = 11;
@@ -51,28 +50,6 @@ namespace Lazpoly.Presentation.Effects
         /// <summary>The longest step the rubble is moved in one go, so a slow frame cannot throw it through the ground.</summary>
         public const float Tick = 1f / 90f;
 
-        /// <summary>Gold and money green, as the game's gold bars and banknotes, each with the dark rim that keeps a sign readable over any square.</summary>
-        public static readonly Color32 Gold = new Color32(255, 204, 64, 255);
-        public static readonly Color32 GoldRim = new Color32(124, 74, 10, 255);
-        public static readonly Color32 Money = new Color32(126, 200, 110, 255);
-        public static readonly Color32 MoneyRim = new Color32(28, 88, 44, 255);
-        public static readonly Color32 PaleGold = new Color32(255, 232, 160, 255);
-        public static readonly Color32 Light = new Color32(255, 247, 222, 255);
-
-        /// <summary>The sale's puff: white cloud, a touch warm, and its lit side.</summary>
-        public static readonly Color32 Puff = new Color32(232, 226, 214, 255);
-        public static readonly Color32 PuffLight = new Color32(255, 253, 246, 255);
-
-        /// <summary>Dust in three tones, and how far each tone's lit side is lifted towards <see cref="DustLight"/>.</summary>
-        public static readonly Color32[] DustTones =
-        {
-            new Color32(186, 170, 148, 255), new Color32(168, 152, 132, 255), new Color32(200, 186, 166, 255),
-        };
-
-        public static readonly Color32 DustLight = new Color32(244, 236, 222, 255);
-        public const float DustLit = 0.55f;
-        public static readonly Color32 GritTone = new Color32(96, 84, 72, 255);
-
         private sealed class Chunk
         {
             public Transform Piece;
@@ -87,36 +64,22 @@ namespace Lazpoly.Presentation.Effects
             public float Floor;
         }
 
-        private readonly List<SoftParticle> _particles = new List<SoftParticle>();
         private readonly List<Chunk> _chunks = new List<Chunk>();
         private readonly List<Material> _materials = new List<Material>();
         private readonly Material[] _tones = new Material[3];
         private Leaving _how;
-        private System.Random _dice;
-        private Transform _view;
-        private Mesh _mesh;
-        private Vector3[] _corners;
-        private Color32[] _colours;
         private float _tile;
         private float _bound;
-        private float _fore;
-        private float _age;
-        private float _seconds;
 
-        /// <summary>The kind of burst, and how long it lasts from its building's first move to its last piece gone.</summary>
+        /// <summary>The kind of burst.</summary>
         public Leaving How => _how;
-        public float Seconds => _seconds;
 
-        /// <summary>Its soft pieces, as they were laid down, and its rubble.</summary>
-        public IReadOnlyList<SoftParticle> Particles => _particles;
+        /// <summary>Its rubble.</summary>
         public int RubbleCount => _chunks.Count;
 
         /// <summary>Where piece <paramref name="index"/> of the rubble is now, and whether it is shown yet.</summary>
         public Vector3 RubblePlace(int index) => _chunks[index].Place;
         public bool RubbleShown(int index) => _chunks[index].Piece.gameObject.activeSelf;
-
-        /// <summary>The time it has run.</summary>
-        public float Age => _age;
 
         /// <summary>
         /// Starts the burst of a building leaving, under <paramref name="parent"/> and in its frame: the building stands
@@ -134,45 +97,13 @@ namespace Lazpoly.Presentation.Effects
             burst._how = how;
             burst._tile = tile;
             burst._bound = bound;
-            burst._dice = new System.Random(seed);
-            Camera eye = Camera.main;
-            burst._view = eye != null ? eye.transform : null;
+            burst.Begin(seed);
             if (how == Leaving.Demolished) burst.LayDemolition(foot, width, height, tile, wall);
             else burst.LaySale(foot, width, height, tile, lift);
-            foreach (SoftParticle particle in burst._particles) burst._seconds = Mathf.Max(burst._seconds, particle.Born + particle.Life);
-            foreach (Chunk chunk in burst._chunks) burst._seconds = Mathf.Max(burst._seconds, chunk.Born + RubbleSeconds + RubbleGone);
-            burst.BuildMesh();
-            burst.Draw();
+            foreach (Chunk chunk in burst._chunks) burst.Outlast(chunk.Born + RubbleSeconds + RubbleGone);
+            burst.Ready("Leaving burst");
             return burst;
         }
-
-        private float Roll(float low, float high) => Mathf.Lerp(low, high, (float)_dice.NextDouble());
-
-        /// <summary>A level direction, <paramref name="index"/> of <paramref name="count"/> round the circle, a little off its place.</summary>
-        private Vector3 Round(int index, int count, float turn)
-        {
-            float angle = turn + 2f * Mathf.PI * (index + Roll(-0.3f, 0.3f)) / Mathf.Max(1, count);
-            return new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
-        }
-
-        /// <summary>Lays a shape of two tones: <paramref name="body"/> as given, and over it the same piece wearing <paramref name="top"/> in <paramref name="tone"/>.</summary>
-        private void Pair(SoftParticle body, SoftSprite top, Color32 tone)
-        {
-            _particles.Add(body);
-            body.Sprite = top;
-            body.Color = tone;
-            _particles.Add(body);
-        }
-
-        /// <summary>
-        /// How far towards the eye the clouds of a building <paramref name="width"/> across and <paramref name="height"/>
-        /// high are drawn, to come in front of it wherever round it they are: without it the walls and the roof cut
-        /// them, and the building is seen falling in the open in the middle of its own dust.
-        /// </summary>
-        public static float Fore(float width, float height) => width * 0.8f + height * 0.6f;
-
-        /// <summary>A dust tone's lit side.</summary>
-        public static Color32 Lit(Color32 tone) => Color32.Lerp(tone, DustLight, DustLit);
 
         private void LaySale(Vector3 foot, float width, float height, float tile, float lift)
         {
@@ -183,7 +114,7 @@ namespace Lazpoly.Presentation.Effects
             // Two rings of gold over the ground as it pops, the second fainter and a breath later.
             for (int i = 0; i < 2; i++)
             {
-                _particles.Add(new SoftParticle
+                Add(new SoftParticle
                 {
                     Sprite = SoftSprite.Ring, Flat = true, Born = pop - 0.04f + 0.11f * i, Life = 0.55f,
                     From = foot + Vector3.up * (tile * 0.012f), SizeFrom = width * 0.8f, SizeTo = Mathf.Min(tile * 1.15f, Mathf.Max(width * 2.4f, tile * 0.8f)),
@@ -192,7 +123,7 @@ namespace Lazpoly.Presentation.Effects
             }
 
             // The flash it goes in.
-            _particles.Add(new SoftParticle
+            Add(new SoftParticle
             {
                 Sprite = SoftSprite.Dot, Born = pop - 0.05f, Life = 0.4f, From = heart,
                 SizeFrom = width * 0.8f, SizeTo = Mathf.Min(tile * 1.4f, width * 2.6f),
@@ -233,18 +164,6 @@ namespace Lazpoly.Presentation.Effects
             }
         }
 
-        /// <summary>A cloud of dust and its lit side.</summary>
-        private void Dust(SoftParticle cloud, int tone)
-        {
-            cloud.Sprite = SoftSprite.Cloud;
-            cloud.Color = DustTones[tone % DustTones.Length];
-            cloud.Alpha = 1f;
-            cloud.FadeFrom = 0.9f;
-            cloud.Turn = Roll(-18f, 18f);
-            cloud.Fore = _fore;
-            Pair(cloud, SoftSprite.CloudLight, Lit(cloud.Color));
-        }
-
         private void LayDemolition(Vector3 foot, float width, float height, float tile, Color wall)
         {
             float drop = LeavingMotion.DemolishedSeconds * LeavingMotion.Jolt;
@@ -262,10 +181,10 @@ namespace Lazpoly.Presentation.Effects
             }
 
             // From here on the dust is drawn in front of the building: it is what the building goes down into.
-            _fore = Fore(width, height);
+            Near = Fore(width, height);
 
             // As it gives way a ring of dust runs out over the ground.
-            _particles.Add(new SoftParticle
+            Add(new SoftParticle
             {
                 Sprite = SoftSprite.Ring, Flat = true, Born = drop + 0.03f, Life = 0.5f,
                 From = foot + Vector3.up * (tile * 0.012f), SizeFrom = width, SizeTo = tile * 1.15f,
@@ -318,7 +237,7 @@ namespace Lazpoly.Presentation.Effects
                 Vector3 way = Round(i, Grit, 1.7f);
                 float start = Roll(0.2f, 0.7f) * height;
                 float thrown = Roll(0.2f, 0.5f) * tile;
-                _particles.Add(new SoftParticle
+                Add(new SoftParticle
                 {
                     Sprite = SoftSprite.Dot, Born = drop + Roll(0f, 0.3f), Life = Roll(0.5f, 0.8f),
                     From = foot + Vector3.up * start, Drift = way * (Roll(0.4f, 0.7f) * tile) + Vector3.up * thrown,
@@ -380,65 +299,10 @@ namespace Lazpoly.Presentation.Effects
             return part.transform;
         }
 
-        /// <summary>One mesh for all the soft pieces, four corners each; only its corners and their colours change as it plays.</summary>
-        private void BuildMesh()
+        /// <summary>The rubble is moved in short steps, so a slow frame cannot throw it through the ground.</summary>
+        protected override void Move(float seconds)
         {
-            int count = _particles.Count;
-            _corners = new Vector3[count * 4];
-            _colours = new Color32[count * 4];
-            var uv = new Vector2[count * 4];
-            var triangles = new int[count * 6];
-            for (int i = 0; i < count; i++)
-            {
-                Rect cell = SoftSprites.Uv(_particles[i].Sprite);
-                uv[i * 4] = new Vector2(cell.xMin, cell.yMin);
-                uv[i * 4 + 1] = new Vector2(cell.xMax, cell.yMin);
-                uv[i * 4 + 2] = new Vector2(cell.xMax, cell.yMax);
-                uv[i * 4 + 3] = new Vector2(cell.xMin, cell.yMax);
-                int t = i * 6, v = i * 4;
-                triangles[t] = v;
-                triangles[t + 1] = v + 2;
-                triangles[t + 2] = v + 1;
-                triangles[t + 3] = v;
-                triangles[t + 4] = v + 3;
-                triangles[t + 5] = v + 2;
-            }
-
-            _mesh = new Mesh { name = "Leaving burst", hideFlags = HideFlags.DontSave };
-            _mesh.MarkDynamic();
-            _mesh.vertices = _corners;
-            _mesh.uv = uv;
-            _mesh.colors32 = _colours;
-            _mesh.triangles = triangles;
-
-            var soft = new GameObject("Soft pieces");
-            soft.transform.SetParent(transform, false);
-            soft.AddComponent<MeshFilter>().sharedMesh = _mesh;
-            var drawn = soft.AddComponent<MeshRenderer>();
-            drawn.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            drawn.receiveShadows = false;
-            drawn.sharedMaterial = SoftSprites.Material();
-            // Without the print shader (not in this build) nothing soft is drawn rather than white squares.
-            if (drawn.sharedMaterial == null) drawn.enabled = false;
-        }
-
-        private void LateUpdate() => Step(Time.deltaTime);
-
-        /// <summary>Moves the burst on by <paramref name="seconds"/> (public so a test can run it without the clock); it is gone once its time is up.</summary>
-        public void Step(float seconds)
-        {
-            seconds = Mathf.Max(0f, seconds);
-            for (float left = seconds; left > 0f; left -= Tick) Tumble(Mathf.Min(left, Tick), _age + (seconds - left));
-            _age += seconds;
-            if (_age >= _seconds)
-            {
-                Clear();
-                if (Application.isPlaying) Destroy(gameObject);
-                else DestroyImmediate(gameObject);
-                return;
-            }
-
-            Draw();
+            for (float left = seconds; left > 0f; left -= Tick) Tumble(Mathf.Min(left, Tick), Age + (seconds - left));
         }
 
         /// <summary>The rubble's flight for one short step that starts at <paramref name="time"/>: thrown, pulled down, bouncing with less each time, gripping the ground, and dwindling at the end.</summary>
@@ -489,83 +353,8 @@ namespace Lazpoly.Presentation.Effects
             return Mathf.Max(0f, 1f - Ease.InCubic((lived - RubbleSeconds) / RubbleGone));
         }
 
-        /// <summary>How many soft pieces are in the air at <paramref name="time"/>.</summary>
-        public int Showing(float time)
-        {
-            int shown = 0;
-            foreach (SoftParticle particle in _particles)
-            {
-                if (particle.Alive(time)) shown++;
-            }
-
-            return shown;
-        }
-
-        /// <summary>Lays every soft piece's quad where it is now: facing the eye (or flat on the ground), turned, sized and coloured.</summary>
-        private void Draw()
-        {
-            if (_mesh == null) return;
-            Vector3 right = Vector3.right, up = Vector3.up;
-            if (_view != null)
-            {
-                right = transform.InverseTransformDirection(_view.right);
-                up = transform.InverseTransformDirection(_view.up);
-            }
-
-            for (int i = 0; i < _particles.Count; i++)
-            {
-                SoftParticle particle = _particles[i];
-                float age = particle.Age(_age);
-                float opacity = particle.Opacity(age);
-                Color32 colour = particle.Color;
-                colour.a = (byte)Mathf.RoundToInt(Mathf.Clamp01(opacity) * 255f);
-                int v = i * 4;
-                _colours[v] = _colours[v + 1] = _colours[v + 2] = _colours[v + 3] = colour;
-                if (opacity <= 0f)
-                {
-                    _corners[v] = _corners[v + 1] = _corners[v + 2] = _corners[v + 3] = particle.From;
-                    continue;
-                }
-
-                Quad(particle, age, right, up, out _corners[v], out _corners[v + 1], out _corners[v + 2], out _corners[v + 3]);
-            }
-
-            _mesh.vertices = _corners;
-            _mesh.colors32 = _colours;
-        }
-
-        /// <summary>
-        /// The four corners of a soft piece at <paramref name="age"/> of its life, for an eye whose right and up are
-        /// <paramref name="right"/> and <paramref name="up"/>: lower left, lower right, upper right, upper left. A piece
-        /// with <see cref="SoftParticle.Fore"/> is drawn that much nearer the eye, so it stays where it is on the screen
-        /// (the game's view has no perspective) but comes in front of the building it would otherwise be cut by.
-        /// </summary>
-        public static void Quad(SoftParticle particle, float age, Vector3 right, Vector3 up, out Vector3 a, out Vector3 b, out Vector3 c, out Vector3 d)
-        {
-            // Towards the eye is out of the plane it faces; a piece on the ground stays where it lies.
-            Vector3 near = particle.Flat ? Vector3.zero : Vector3.Cross(up, right) * particle.Fore;
-            if (particle.Flat)
-            {
-                right = Vector3.right;
-                up = Vector3.forward;
-            }
-
-            float angle = particle.Angle(age) * Mathf.Deg2Rad;
-            float cos = Mathf.Cos(angle), sin = Mathf.Sin(angle);
-            float half = particle.Size(age) * 0.5f;
-            Vector3 across = (right * cos + up * sin) * half;
-            Vector3 along = (up * cos - right * sin) * half;
-            Vector3 middle = particle.Position(age) + near;
-            a = middle - across - along;
-            b = middle + across - along;
-            c = middle + across + along;
-            d = middle - across + along;
-        }
-
-        private void OnDestroy() => Clear();
-
-        /// <summary>Throws away what it made: the rubble's materials and the mesh of the soft pieces (their material is shared and stays).</summary>
-        private void Clear()
+        /// <summary>Throws away what it made: the rubble's materials, with the mesh of the soft pieces.</summary>
+        protected override void Clear()
         {
             foreach (Material material in _materials)
             {
@@ -575,10 +364,7 @@ namespace Lazpoly.Presentation.Effects
             }
 
             _materials.Clear();
-            if (_mesh == null) return;
-            if (Application.isPlaying) Destroy(_mesh);
-            else DestroyImmediate(_mesh);
-            _mesh = null;
+            base.Clear();
         }
     }
 }

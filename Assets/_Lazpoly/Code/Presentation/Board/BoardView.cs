@@ -402,6 +402,15 @@ namespace Lazpoly.Presentation.Tabletop
         private BoardData _data;
         private readonly Dictionary<Collider, int> _squareOfCollider = new Dictionary<Collider, int>();
         private readonly HashSet<Transform> _animating = new HashSet<Transform>();
+
+        /// <summary>The buildings going up just now, each with the size it will stand at.</summary>
+        private readonly Dictionary<Transform, RiseRun> _rising = new Dictionary<Transform, RiseRun>();
+
+        private sealed class RiseRun
+        {
+            public Vector3 Size;
+            public Coroutine Run;
+        }
         private HashSet<int> _highlighted;
         private float _width;
         private float _depth;
@@ -984,13 +993,13 @@ namespace Lazpoly.Presentation.Tabletop
             if (show) yield return Raise(piece, piece.localScale);
         }
 
+        /// <summary>The plot ducks into the dust of the first building going up on it, as an old house does under a new one.</summary>
         private IEnumerator Lower(Transform flag, Vector3 size, System.Action then)
         {
-            const float seconds = 0.35f;
-            for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
+            for (float t = 0f; t < 1f; t += Time.deltaTime / RisingMotion.DuckSeconds)
             {
                 if (flag == null) yield break;
-                flag.localScale = new Vector3(size.x, size.y * Mathf.Max(0.02f, 1f - Ease.InCubic(t)), size.z);
+                flag.localScale = new Vector3(size.x, size.y * RisingMotion.Duck(t), size.z);
                 yield return null;
             }
 
@@ -1028,8 +1037,9 @@ namespace Lazpoly.Presentation.Tabletop
 
         /// <summary>
         /// Shows the one building of a level: a house of one to four storeys, or the hotel at the top level.
-        /// With <paramref name="animate"/>, a new, taller building drops onto the tile and bounces while the old one
-        /// shrinks away, and the plot folds down when the first building takes its place. A building that comes down
+        /// With <paramref name="animate"/>, a new, taller building goes up in two blows of the hammer, in its dust
+        /// (the owner's wish, 2026-11-18: <see cref="RisingMotion"/>, <see cref="RisingBurst"/>), while the old one
+        /// ducks away under it, and the plot folds down when the first building takes its place. A building that comes down
         /// leaves in its own way (<paramref name="leaving"/>, the owner's wish, 2026-11-17): sold, it springs up and is
         /// gone in a puff and dollar signs; torn down by a card, it falls in on itself in dust. What stays behind (a lower house, the
         /// plot) shows again as it goes.
@@ -1049,6 +1059,8 @@ namespace Lazpoly.Presentation.Tabletop
                 Transform piece = pieces[i].transform;
                 bool appears = shown && !pieces[i].activeSelf;
                 bool goes = !shown && pieces[i].activeSelf;
+                // One still going up stands whole before it gives way or leaves, so it is measured and put back at its size.
+                if (goes) Land(piece);
                 if (goes && animate && _animating.Add(piece))
                 {
                     int index = i;
@@ -1068,7 +1080,7 @@ namespace Lazpoly.Presentation.Tabletop
 
                 pieces[i].SetActive(shown);
                 piece.localPosition = _buildingRest[squareIndex][i];
-                if (appears && animate) StartCoroutine(Drop(piece, _buildingRest[squareIndex][i]));
+                if (appears && animate) RaiseBuilding(piece, _buildingRest[squareIndex][i], level >= SquareDefinition.MaxBuildingLevel);
             }
 
             // The plot (or flag) gives way to the first building and returns when the last one is sold.
@@ -1098,14 +1110,14 @@ namespace Lazpoly.Presentation.Tabletop
         /// <summary>A square has one building per level (index 0 is the one-storey house, the last the hotel); only the current level's stands.</summary>
         public static bool Shows(int index, int level) => index == Mathf.Min(level, SquareDefinition.MaxBuildingLevel) - 1;
 
+        /// <summary>The house a taller one takes the place of ducks down into the dust as the new one comes up.</summary>
         private IEnumerator Shrink(Transform piece, int squareIndex, int index)
         {
-            const float seconds = 0.3f;
             Vector3 size = piece.localScale;
-            for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
+            for (float t = 0f; t < 1f; t += Time.deltaTime / RisingMotion.DuckSeconds)
             {
                 if (piece == null) yield break;
-                piece.localScale = size * Mathf.Max(0.01f, 1f - Ease.InCubic(t));
+                piece.localScale = new Vector3(size.x, size.y * RisingMotion.Duck(t), size.z);
                 yield return null;
             }
 
@@ -1147,18 +1159,50 @@ namespace Lazpoly.Presentation.Tabletop
             }
         }
 
-        private static IEnumerator Drop(Transform piece, Vector3 rest)
+        /// <summary>Raised as a building starts to go up, with whether it is a hotel: the scene plays its hammer then.</summary>
+        public event System.Action<bool> RisingStarted;
+
+        /// <summary>The buildings going up now: tests and the screen tour look at them.</summary>
+        public int RisingCount => _rising.Count;
+
+        /// <summary>
+        /// A building that has just been put on its square goes up from the tile (<see cref="RisingMotion"/>) in its
+        /// dust (<see cref="RisingBurst"/>, sized to the building itself; <paramref name="grand"/> for a hotel).
+        /// </summary>
+        private void RaiseBuilding(Transform piece, Vector3 rest, bool grand)
         {
-            const float seconds = 0.45f;
-            const float height = 0.9f;
-            for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
+            Land(piece);
+            var rise = new RiseRun { Size = piece.localScale };
+            _rising[piece] = rise;
+            Measure(piece, rest, out Vector3 foot, out float across, out float high);
+            RisingBurst.Play(transform, foot, across, high, _width, grand, piece.GetSiblingIndex() * 31 + Mathf.RoundToInt(rest.x * 97f + rest.z * 13f));
+            RisingStarted?.Invoke(grand);
+            piece.localScale = Vector3.Scale(rise.Size, RisingMotion.Scale(0f));
+            rise.Run = StartCoroutine(Rise(piece, rise));
+        }
+
+        private IEnumerator Rise(Transform piece, RiseRun rise)
+        {
+            for (float t = 0f; t < 1f; t += Time.deltaTime / RisingMotion.Seconds)
             {
-                if (piece == null) yield break;
-                piece.localPosition = rest + Vector3.up * (height * (1f - Ease.OutBounce(t)));
+                if (piece == null) break;
+                piece.localScale = Vector3.Scale(rise.Size, RisingMotion.Scale(t));
                 yield return null;
             }
 
-            if (piece != null) piece.localPosition = rest;
+            // Only its own rise ends here: a piece that has left and is going up again is another's.
+            if (piece == null || !_rising.TryGetValue(piece, out RiseRun now) || now != rise) yield break;
+            _rising.Remove(piece);
+            piece.localScale = rise.Size;
+        }
+
+        /// <summary>A building still going up stands at its full size at once.</summary>
+        private void Land(Transform piece)
+        {
+            if (!_rising.TryGetValue(piece, out RiseRun rise)) return;
+            _rising.Remove(piece);
+            if (rise.Run != null) StopCoroutine(rise.Run);
+            piece.localScale = rise.Size;
         }
 
         private void RefreshOwnerMarker(int squareIndex)

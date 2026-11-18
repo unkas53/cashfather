@@ -1,5 +1,6 @@
 using Lazpoly.Core.Events;
 using Lazpoly.Core.State;
+using Lazpoly.Presentation.Effects;
 
 namespace Lazpoly.Presentation.Audio
 {
@@ -37,6 +38,11 @@ namespace Lazpoly.Presentation.Audio
         // The jail's iron gate swinging open and shutting behind a piece (the owner's wish, 2026-11-12); Kenney recordings.
         JailOpen,
         JailShut,
+
+        // A building leaving its square (the owner's wish, 2026-11-18: professional sounds, like the real thing): sold, the
+        // till and its coins; torn down, the collapse and its rubble. Kenney recordings, timed to the animation.
+        BuildingSold,
+        BuildingFall,
     }
 
     /// <summary>Which sound goes with which game event, and where each clip lives. No engine calls, so it is tested directly.</summary>
@@ -49,8 +55,8 @@ namespace Lazpoly.Presentation.Audio
         /// sends several events sounds once: a purchase plays on its payment, not on the owner change,
         /// and rent plays on the payer's side only. Dice, steps and the turn banner are timed by
         /// their animations instead; the hotel and the quiet turn-pass note are played by the scene too,
-        /// the bus's sounds by its ride (<see cref="Pawns.BusTrip"/>) and the jail's gate by the piece that goes
-        /// through it (<see cref="ForJailGate"/>).
+        /// the bus's sounds by its ride (<see cref="Pawns.BusTrip"/>), the jail's gate by the piece that goes
+        /// through it (<see cref="ForJailGate"/>) and a building's leaving by its animation (<see cref="ForLeaving"/>).
         /// </summary>
         public static SoundCue For(GameEvent gameEvent)
         {
@@ -98,6 +104,31 @@ namespace Lazpoly.Presentation.Audio
 
         /// <summary>The jail's gate as a piece goes through it: the bolt and the hinges as it opens, the strike and the lock as it shuts.</summary>
         public static SoundCue ForJailGate(bool opening) => opening ? SoundCue.JailOpen : SoundCue.JailShut;
+
+        /// <summary>
+        /// A building leaving its square, heard from the moment it starts to go (the clips are cut to the animation,
+        /// <see cref="LeavingMotion"/>): sold, the till rings as it pops and coins fall as the dollar signs rise; torn
+        /// down, it cracks at the jolt, crumbles, crashes down and its rubble settles.
+        /// </summary>
+        public static SoundCue ForLeaving(Leaving how) => how == Leaving.Demolished ? SoundCue.BuildingFall : SoundCue.BuildingSold;
+
+        /// <summary>Buildings that start to leave the same way within this time of each other are heard once: a street sold in one go rings one till.</summary>
+        public const float LeavingGapSeconds = 0.5f;
+
+        /// <summary>Whether a leaving that starts <paramref name="sinceLast"/> seconds after the last one heard sounds too.</summary>
+        public static bool LeavingIsHeard(bool sameAsLast, float sinceLast) => !sameAsLast || sinceLast >= LeavingGapSeconds;
+
+        /// <summary>
+        /// Whether an event's own sound (<see cref="For"/>) is left out because a building sold
+        /// <paramref name="sinceSoldLeaving"/> seconds ago is being heard: the money of a sale, whose knock and coins
+        /// the till and its coins take the place of. A sale with nothing on the board to leave keeps its old sound.
+        /// </summary>
+        public static bool HeardInLeaving(GameEvent gameEvent, float sinceSoldLeaving) =>
+            gameEvent is MoneyChangedEvent money && sinceSoldLeaving >= 0f && sinceSoldLeaving < LeavingCoversSeconds
+            && (money.Reason == MoneyReason.BuildingSale || money.Reason == MoneyReason.PropertySale);
+
+        /// <summary>How long after a sold building starts to go its sound stands for the sale's money too: the length of the till and its coins.</summary>
+        public const float LeavingCoversSeconds = 1.5f;
 
         /// <summary>The clip's path under a Resources folder, e.g. "Lazpoly/Sfx/dice_shake"; null for <see cref="SoundCue.None"/>.</summary>
         public static string ResourcePath(SoundCue cue) => cue == SoundCue.None ? null : Folder + FileName(cue);
@@ -171,6 +202,8 @@ namespace Lazpoly.Presentation.Audio
                 case SoundCue.Build:
                 case SoundCue.Sell:
                     return 0.015f; // In tune with the music: a cent or two of colour, not a different note.
+                case SoundCue.BuildingFall:
+                    return 0.03f; // No two walls come down alike.
                 default:
                     return 0f;
             }
@@ -192,6 +225,8 @@ namespace Lazpoly.Presentation.Audio
                 case SoundCue.BusBrake: return 0.5f;
                 case SoundCue.JailOpen: return 0.55f; // The bolt and the hinges: a detail under the piece's words.
                 case SoundCue.JailShut: return 0.65f;
+                case SoundCue.BuildingSold: return 0.7f; // The till's bell is bright: just under the table's big moments.
+                case SoundCue.BuildingFall: return 0.8f; // A collapse is the loudest thing on the table while it lasts.
                 default: return 0.75f;
             }
         }

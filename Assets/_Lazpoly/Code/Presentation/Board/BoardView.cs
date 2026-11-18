@@ -888,6 +888,9 @@ namespace Lazpoly.Presentation.Tabletop
         public const float LeaveLift = 0.3f;
         public const float LeaveShake = 0.03f;
 
+        /// <summary>Raised as a building (or a marker) starts to leave, with the way it goes: the scene plays its sound.</summary>
+        public event System.Action<Leaving> LeavingStarted;
+
         /// <summary>The leavings under way now (<see cref="Leaving"/>): tests and the screen tour look at them.</summary>
         public int LeavingCount { get; private set; }
 
@@ -909,6 +912,7 @@ namespace Lazpoly.Presentation.Tabletop
             Measure(piece, rest, out Vector3 foot, out float across, out float high);
             LeavingBurst.Play(transform, how, foot, across, high, _width, _width * LeaveLift, wall, piece.GetSiblingIndex() * 31 + Mathf.RoundToInt(rest.x * 97f + rest.z * 13f), HalfExtent);
             LeavingCount++;
+            LeavingStarted?.Invoke(how);
             for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
             {
                 if (piece == null) break;

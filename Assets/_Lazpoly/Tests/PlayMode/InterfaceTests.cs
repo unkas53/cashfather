@@ -587,6 +587,7 @@ namespace Lazpoly.PlayTests
             LeavingBurst puff = board.GetComponentInChildren<LeavingBurst>();
             Assert.IsNotNull(puff, "A sold house leaves without its puff and dollar signs.");
             Assert.AreEqual(Leaving.Sold, puff.How);
+            Assert.AreEqual(SoundCue.BuildingSold, AudioPlayer.LastCue, "A sold house leaves without the till's sound.");
             float highest = 0f;
             started = Time.realtimeSinceStartup;
             while (board.LeavingCount > 0 && Time.realtimeSinceStartup - started < 10f)
@@ -615,6 +616,7 @@ namespace Lazpoly.PlayTests
             bool dust = false;
             foreach (LeavingBurst burst in board.GetComponentsInChildren<LeavingBurst>()) dust |= burst.How == Leaving.Demolished;
             Assert.IsTrue(dust, "A torn-down house falls without dust.");
+            Assert.AreEqual(SoundCue.BuildingFall, AudioPlayer.LastCue, "A torn-down house falls without the sound of its collapse.");
             float lowest = 1f, deepest = 0f;
             highest = 0f;
             started = Time.realtimeSinceStartup;

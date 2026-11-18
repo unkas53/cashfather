@@ -18,3 +18,12 @@ değiştirilecekse CC0 lisanslı kayıt bu klasöre konur ve tarif `make_sfx_ken
 Hapishanenin kapısı (`jail_open`, `jail_shut`, 2026-11-12) yine bu kayıtlardan kurulur: RPG Audio'dan `metalLatch`,
 `metalClick`, `creak3`; Impact Sounds'tan `impactMetal_heavy_001`, `impactMetal_medium_003`. Dosyalar yeniden
 indirilmedi, 2026-11-03'te indirilen paketlerin tamamını tutan `kenney-kaynak` dalından alındı.
+
+Binaların gidiş sesleri (`building_sold`, `building_fall`, 2026-11-18) de bu kayıtlardan kurulur ve animasyonun
+anlarına göre kesilir (betikteki `SOLD_POP`, `FALL_DROP`, `FALL_DOWN`). Satış: tahta tıkırtısı, kumaş hışırtısı
+(`cloth2`, `cloth4`, `dropLeather`), çekmece mandalı (`metalLatch`), yazar kasa zili (`impactBell_heavy_000`, hızlı
+çalınarak inceltilmiş, üstünde `impactMetal_light_003`) ve bozuk paralar (`handleCoins`, `handleCoins2`). Yıkım:
+çatlama (`chop`, `impactPlank_medium`), ufalanan duvar (`footstep_snow`, yavaş çalınarak kalınlaştırılmış;
+`chips-handle-5`, `doorClose_1/3`), cam (`impactGlass_light`), gümleme (`impactMining`, `impactPlate_heavy_004`,
+`impactPunch_heavy_000`, `doorClose_4`) ve yere düşen moloz (`bookPlace1-3`, `impactGeneric_light`, `drop_001/002/004`).
+Yeni indirme yapılmadı: dosyalar `kenney-kaynak` dalından alındı. Kayıtların hızı ve düzeyi dışında bir işlem yok.

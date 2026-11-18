@@ -53,6 +53,53 @@ namespace Lazpoly.Presentation.Tests
         }
 
         [Test]
+        public void ABuildingIsHeardLeavingTheTillForASaleTheCollapseForATearingDown()
+        {
+            // The owner's wish (2026-11-18): the leaving animations get their sounds, professional and like the real thing.
+            Assert.AreEqual("building_sold", SoundCues.FileName(SoundCue.BuildingSold));
+            Assert.AreEqual("building_fall", SoundCues.FileName(SoundCue.BuildingFall));
+            Assert.AreEqual(SoundCue.BuildingSold, SoundCues.ForLeaving(Effects.Leaving.Sold));
+            Assert.AreEqual(SoundCue.BuildingFall, SoundCues.ForLeaving(Effects.Leaving.Demolished));
+            Assert.AreEqual(0f, SoundCues.PitchJitter(SoundCue.BuildingSold), "the till's bell keeps its note");
+            Assert.That(SoundCues.PitchJitter(SoundCue.BuildingFall), Is.InRange(0.01f, 0.05f), "no two walls come down alike, but a collapse stays a collapse");
+            Assert.Greater(SoundCues.Volume(SoundCue.BuildingFall), SoundCues.Volume(SoundCue.BuildingSold), "a collapse is louder than a till");
+            foreach (SoundCue cue in new[] { SoundCue.BuildingSold, SoundCue.BuildingFall })
+            {
+                Assert.AreEqual(1, SoundCues.Variants(cue), cue.ToString());
+                Assert.That(SoundCues.Volume(cue), Is.InRange(0.6f, 0.85f), $"{cue} is one of the table's moments");
+            }
+
+            // Each clip is cut to its animation: it starts with the building's first move, is still sounding when the
+            // building is gone (the coins as the dollar signs rise, the rubble settling), and ends with the effect.
+            AudioClip sold = Resources.Load<AudioClip>(SoundCues.ResourcePath(SoundCue.BuildingSold));
+            AudioClip fall = Resources.Load<AudioClip>(SoundCues.ResourcePath(SoundCue.BuildingFall));
+            Assert.IsNotNull(sold, "run Tools/Audio/make_sfx_kenney.py building_sold");
+            Assert.IsNotNull(fall, "run Tools/Audio/make_sfx_kenney.py building_fall");
+            Assert.That(sold.length, Is.InRange(Effects.LeavingMotion.SoldSeconds + 0.6f, 2.2f), "the coins fall while the dollar signs rise");
+            Assert.That(fall.length, Is.InRange(Effects.LeavingMotion.DemolishedSeconds + 0.6f, 2.4f), "the rubble is heard settling after the crash");
+            Assert.AreEqual(sold.length, SoundCues.LeavingCoversSeconds, 0.4f, "the sale's own money sound is held back for as long as the till is heard");
+
+            // Buildings going together are heard once; one after another, or one sold and one torn down, each is heard.
+            Assert.IsTrue(SoundCues.LeavingIsHeard(true, float.PositiveInfinity), "the first leaving of a game");
+            Assert.IsFalse(SoundCues.LeavingIsHeard(true, 0f), "a town and its house go in the same moment");
+            Assert.IsFalse(SoundCues.LeavingIsHeard(true, SoundCues.LeavingGapSeconds - 0.01f));
+            Assert.IsTrue(SoundCues.LeavingIsHeard(true, SoundCues.LeavingGapSeconds));
+            Assert.IsTrue(SoundCues.LeavingIsHeard(false, 0f), "a sale and a tearing down are different sounds");
+
+            // The till stands for the sale's money: its old knock and coins are not heard on top of it. Anything else is.
+            var townSold = new MoneyChangedEvent(1, 30, MoneyReason.PropertySale);
+            var houseSold = new MoneyChangedEvent(1, 25, MoneyReason.BuildingSale);
+            Assert.IsTrue(SoundCues.HeardInLeaving(townSold, 0f));
+            Assert.IsTrue(SoundCues.HeardInLeaving(houseSold, 0.3f));
+            Assert.IsFalse(SoundCues.HeardInLeaving(townSold, SoundCues.LeavingCoversSeconds), "a later sale with nothing leaving keeps its sound");
+            Assert.IsFalse(SoundCues.HeardInLeaving(townSold, float.PositiveInfinity), "no building has left yet");
+            Assert.IsFalse(SoundCues.HeardInLeaving(townSold, -1f), "the last leaving was a tearing down");
+            Assert.IsFalse(SoundCues.HeardInLeaving(new MoneyChangedEvent(1, -40, MoneyReason.Rent), 0f), "rent paid while a house leaves is still heard");
+            Assert.IsFalse(SoundCues.HeardInLeaving(new MoneyChangedEvent(1, 200, MoneyReason.PassedStart), 0f));
+            Assert.IsFalse(SoundCues.HeardInLeaving(new PlayerBankruptedEvent(1, 2), 0f), "a bankruptcy is heard over its sales");
+        }
+
+        [Test]
         public void TheBusIsHeardStartingPullingAwaySoundingItsHornAndBraking()
         {
             // The owner's wish (2026-11-11): the engine starting, the horn, the brakes and the engine pulling away.

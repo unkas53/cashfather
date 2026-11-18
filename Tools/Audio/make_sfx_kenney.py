@@ -35,12 +35,25 @@ def layer(pack, name, at=0.0, db=0.0):
     return pack, name, at, db
 
 
+def hit(pack, name, at=0.0, db=0.0, rate=1.0):
+    """A layer brought to the same peak first (so db is its level whatever the recording's own), played at
+    rate times its speed: below 1 it is slower, longer and lower, as a bigger thing would sound."""
+    return pack, name, at, db, rate
+
+
 def pizzi(n, at=0.0, db=0.0):
     return layer(JINGLE, f"jingles_PIZZI{n:02d}.ogg", at, db)
 
 
 # When the jail's gate strikes its frame in jail_shut, from the cue's start.
 JAIL_STRIKE = 0.22
+
+# A building leaving its square (Faz 52). The cue starts with the animation, so these are the animation's own
+# moments: a sold building pops into its puff SOLD_POP seconds in (LeavingMotion.SoldSeconds * PopAt); a torn-down
+# one is jolted at once, gives way FALL_DROP seconds in (DemolishedSeconds * Jolt) and is down at FALL_DOWN.
+SOLD_POP = 0.45
+FALL_DROP = 0.2
+FALL_DOWN = 0.9
 
 # cue (or cue_take) -> (layers, longest seconds or None, fade-out seconds)
 RECIPES = {
@@ -93,6 +106,35 @@ RECIPES = {
     "jail_open": ([layer(RPG, "metalLatch.ogg"), layer(RPG, "creak3.ogg", 0.10, -5)], None, 0.05),
     "jail_shut": ([layer(RPG, "creak3.ogg", 0.0, -8), layer(IMPACT, "impactMetal_heavy_001.ogg", JAIL_STRIKE),
                    layer(IMPACT, "impactMetal_medium_003.ogg", JAIL_STRIKE + 0.005, -6), layer(RPG, "metalClick.ogg", 0.52, 4)], None, 0.08),
+    # A building sold (Faz 52): a knock as it comes off, the swish of its spring, then as it pops into its puff the
+    # till: the drawer's latch, a soft puff of air, the bell, and coins again and again as the dollar signs rise.
+    "building_sold": ([hit(IMPACT, "impactWood_light_004.ogg", 0.0, -9),
+                       hit(RPG, "cloth4.ogg", 0.20, -5),
+                       hit(RPG, "metalLatch.ogg", SOLD_POP - 0.03, -7),
+                       hit(RPG, "dropLeather.ogg", SOLD_POP - 0.01, -5), hit(RPG, "cloth2.ogg", SOLD_POP, -8), hit(IMPACT, "impactSoft_medium_001.ogg", SOLD_POP, -9),
+                       hit(IMPACT, "impactBell_heavy_000.ogg", SOLD_POP + 0.02, 0, 2.5), hit(IMPACT, "impactMetal_light_003.ogg", SOLD_POP + 0.02, -9),
+                       hit(RPG, "handleCoins.ogg", SOLD_POP + 0.05, -2), hit(RPG, "handleCoins2.ogg", SOLD_POP + 0.45, -6, 0.93),
+                       hit(RPG, "handleCoins.ogg", SOLD_POP + 0.70, -9, 1.12), hit(RPG, "handleCoins2.ogg", SOLD_POP + 1.05, -12, 1.1)], 1.9, 0.3),
+    # A building torn down (Faz 52). The jolt: timber cracks and the walls take a blow. Then it gives way: masonry
+    # crumbling ever louder, planks breaking, stones clattering, a window or two; it comes down with a deep crash; and the rubble
+    # lands and settles, piece after piece, quieter and quieter.
+    "building_fall": ([hit(RPG, "chop.ogg", 0.0, -3), hit(IMPACT, "impactPlank_medium_002.ogg", 0.01, -5), hit(IMPACT, "impactMining_002.ogg", 0.0, -5),
+                       hit(UI, "drop_002.ogg", 0.09, -15), hit(IMPACT, "impactGeneric_light_001.ogg", 0.14, -13),
+                       hit(IMPACT, "footstep_snow_001.ogg", FALL_DROP + 0.02, -12, 0.85), hit(IMPACT, "impactMining_000.ogg", FALL_DROP + 0.05, -9, 0.85),
+                       hit(IMPACT, "impactPlank_medium_000.ogg", FALL_DROP + 0.11, -9), hit(IMPACT, "footstep_snow_003.ogg", FALL_DROP + 0.15, -10, 0.8),
+                       hit(RPG, "doorClose_3.ogg", FALL_DROP + 0.21, -7, 0.85), hit(CASINO, "chips-handle-5.ogg", FALL_DROP + 0.25, -9, 0.55), hit(IMPACT, "footstep_snow_002.ogg", FALL_DROP + 0.27, -8, 0.75),
+                       hit(IMPACT, "impactGlass_light_001.ogg", FALL_DROP + 0.30, -12), hit(IMPACT, "impactMining_003.ogg", FALL_DROP + 0.32, -6, 0.8),
+                       hit(IMPACT, "impactPlank_medium_004.ogg", FALL_DROP + 0.39, -7, 0.9), hit(IMPACT, "footstep_snow_004.ogg", FALL_DROP + 0.43, -6, 0.7),
+                       hit(IMPACT, "impactGlass_light_003.ogg", FALL_DROP + 0.47, -12, 1.1), hit(IMPACT, "footstep_snow_001.ogg", FALL_DROP + 0.53, -5, 0.65),
+                       hit(RPG, "bookPlace2.ogg", FALL_DROP + 0.58, -5, 0.8), hit(IMPACT, "footstep_snow_003.ogg", FALL_DROP + 0.62, -4, 0.6),
+                       hit(IMPACT, "impactMining_001.ogg", FALL_DOWN - 0.03, 0, 0.6), hit(IMPACT, "impactPlate_heavy_004.ogg", FALL_DOWN - 0.01, -2, 0.8),
+                       hit(IMPACT, "impactPunch_heavy_000.ogg", FALL_DOWN, -3), hit(RPG, "doorClose_4.ogg", FALL_DOWN, -2, 0.7),
+                       hit(RPG, "doorClose_1.ogg", FALL_DOWN + 0.02, -4, 0.7), hit(CASINO, "chips-handle-5.ogg", FALL_DOWN + 0.08, -6, 0.5), hit(IMPACT, "footstep_snow_002.ogg", FALL_DOWN + 0.04, -5, 0.55),
+                       hit(RPG, "bookPlace1.ogg", FALL_DOWN + 0.20, -7), hit(IMPACT, "footstep_snow_000.ogg", FALL_DOWN + 0.27, -12, 0.8),
+                       hit(IMPACT, "impactGeneric_light_002.ogg", FALL_DOWN + 0.33, -12), hit(UI, "drop_004.ogg", FALL_DOWN + 0.41, -15),
+                       hit(RPG, "bookPlace3.ogg", FALL_DOWN + 0.50, -10, 1.2), hit(IMPACT, "impactGeneric_light_003.ogg", FALL_DOWN + 0.62, -15),
+                       hit(UI, "drop_002.ogg", FALL_DOWN + 0.74, -17), hit(IMPACT, "impactGeneric_light_004.ogg", FALL_DOWN + 0.88, -18, 1.1),
+                       hit(UI, "drop_001.ogg", FALL_DOWN + 1.0, -20)], 2.0, 0.35),
 }
 
 # Small, frequent sounds sit under the big moments already in the files, not only in the game's mix.
@@ -120,10 +162,20 @@ def trim_silence(x, floor=0.002):
     return x[loud[0]:loud[-1] + 1] if len(loud) else x
 
 
+def respeed(x, rate):
+    """The recording played at rate times its speed (pitch and length change together, as on a tape)."""
+    if rate == 1.0 or len(x) < 2:
+        return x
+    return np.interp(np.arange(0, len(x) - 1, rate), np.arange(len(x)), x)
+
+
 def build(layers, longest, fade):
     parts = []
-    for pack, name, at, db in layers:
-        parts.append((int(at * RATE), trim_silence(decode(source(pack, name))) * 10 ** (db / 20)))
+    for pack, name, at, db, *more in layers:
+        sig = trim_silence(decode(source(pack, name)))
+        if more:  # A hit(): brought to one peak, and played faster or slower.
+            sig = respeed(sig / max(np.abs(sig).max(), 1e-9), more[0])
+        parts.append((int(at * RATE), sig * 10 ** (db / 20)))
     out = np.zeros(max(start + len(sig) for start, sig in parts))
     for start, sig in parts:
         out[start:start + len(sig)] += sig

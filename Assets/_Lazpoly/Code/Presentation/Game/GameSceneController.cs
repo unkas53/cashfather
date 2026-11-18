@@ -324,6 +324,23 @@ namespace Lazpoly.Presentation.Game
 
         private Leaving LeavingOf(int square) => square == _tornDown ? Leaving.Demolished : Leaving.Sold;
 
+        /// <summary>The leaving heard last and when (unscaled time): several buildings going together sound once, and a sale's money is not heard on top of its till.</summary>
+        private Leaving _leavingHeard;
+        private float _leavingHeardAt = float.NegativeInfinity;
+
+        /// <summary>A building starts to leave the board: its sound starts with it (the owner's wish, 2026-11-18).</summary>
+        private void OnLeavingStarted(Leaving how)
+        {
+            float now = Time.unscaledTime;
+            if (!SoundCues.LeavingIsHeard(how == _leavingHeard, now - _leavingHeardAt)) return;
+            _leavingHeard = how;
+            _leavingHeardAt = now;
+            AudioPlayer.Play(SoundCues.ForLeaving(how));
+        }
+
+        /// <summary>How long ago a sold building's sound started; below 0 when the last leaving heard was not a sale.</summary>
+        private float SinceSoldLeaving => _leavingHeard == Leaving.Sold ? Time.unscaledTime - _leavingHeardAt : -1f;
+
         /// <summary>Whether the card shown in <see cref="ShownPlay"/> was an attack a protection card's shield stopped.</summary>
         public bool ShownPlayBlocked { get; private set; }
 
@@ -839,6 +856,7 @@ namespace Lazpoly.Presentation.Game
 
             GameState state = _session.State;
             _board = BoardView.Create(transform, _data);
+            _board.LeavingStarted += OnLeavingStarted;
             StartCoroutine(Lazpoly.Presentation.Models.MoneyBundle.Preload()); // Read over the first frames, ready before the first payment.
             Markers = SquareMarkers.Create(_board);
             // The dice land on the lawn, below the middle of the screen so they stay clear of the score.
@@ -1796,7 +1814,7 @@ namespace Lazpoly.Presentation.Game
                 string line = EventDescriber.Describe(gameEvent, _session.State, _session.Board);
                 if (line != null) AddLog(line, EventDescriber.ToneOf(gameEvent), EventDescriber.ActorOf(gameEvent), gameEvent is TurnStartedEvent);
 
-                AudioPlayer.Play(SoundCues.For(gameEvent));
+                if (!SoundCues.HeardInLeaving(gameEvent, SinceSoldLeaving)) AudioPlayer.Play(SoundCues.For(gameEvent));
                 switch (gameEvent)
                 {
                     case TurnStartedEvent turn:

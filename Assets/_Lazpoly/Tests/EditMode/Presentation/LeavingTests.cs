@@ -42,6 +42,7 @@ namespace Lazpoly.Presentation.Tests
             Assert.LessOrEqual(end.Scale.y, LeavingMotion.Least * (1f + LeavingMotion.Spring) + 1e-4f, "it is gone at the end");
             Assert.LessOrEqual(end.Scale.x, LeavingMotion.Least + 1e-4f, "it is gone at the end");
             AssertSame(end.Scale, LeavingMotion.Sold(2f).Scale, "past its time it stays as it ended");
+            Assert.AreEqual(-(1f - LeavingMotion.Least) * (1f + LeavingMotion.Spring) * 0.5f, end.Sink, 1e-4f, "it dwindles into its own middle, inside the puff, not to its foot below it");
             Assert.Less(LeavingMotion.Sold(LeavingMotion.PopAt + (1f - LeavingMotion.PopAt) * 0.5f).Scale.y, 0.2f, "most of it is gone half way through the pop");
 
             LeavingPose before = start;
@@ -50,7 +51,8 @@ namespace Lazpoly.Presentation.Tests
                 float t = i / (float)Samples;
                 LeavingPose pose = LeavingMotion.Sold(t);
                 Assert.GreaterOrEqual(pose.Lift, before.Lift - 1e-5f, $"it never comes back down (sample {i})");
-                Assert.AreEqual(0f, pose.Sink, 1e-6f, "a sold building does not go into the ground");
+                Assert.LessOrEqual(pose.Sink, 1e-6f, "a sold building does not go into the ground");
+                if (t < LeavingMotion.PopAt) Assert.AreEqual(0f, pose.Sink, 1e-6f, "it stands on its foot until it pops");
                 Assert.AreEqual(0f, pose.Turn, 1e-6f, "it does not spin");
                 Assert.AreEqual(0f, pose.Tilt, 1e-6f, "it does not lean");
                 Assert.AreEqual(0f, pose.Shake, 1e-6f, "it does not shake");
@@ -331,6 +333,16 @@ namespace Lazpoly.Presentation.Tests
             LeavingBurst.Quad(piece, 0.5f, new Vector3(0.7f, 0f, 0.7f), new Vector3(0f, 0.7f, -0.7f), out a, out _, out c, out _);
             AssertSame(new Vector3(-1f, 0f, -1f), a, "a ring lies on the ground whatever the eye");
             AssertSame(new Vector3(1f, 0f, 1f), c, "a ring lies on the ground whatever the eye");
+
+            // Drawn nearer the eye, a piece keeps its place on the screen and comes out of the plane it faces; a ring
+            // on the ground does not move.
+            piece.Fore = 0.5f;
+            LeavingBurst.Quad(piece, 0.5f, Vector3.right, Vector3.up, out a, out _, out c, out _);
+            AssertSame(new Vector3(-1f, 0f, -1f), a, "a ring is lifted off the ground towards the eye");
+            piece.Flat = false;
+            LeavingBurst.Quad(piece, 0.5f, Vector3.right, Vector3.up, out a, out _, out c, out _);
+            AssertSame(new Vector3(-1f, -1f, -0.5f), a, "towards the eye is back along its forward");
+            AssertSame(new Vector3(1f, 1f, -0.5f), c, "towards the eye is back along its forward");
         }
 
         [Test]
@@ -388,6 +400,7 @@ namespace Lazpoly.Presentation.Tests
                     if (particle.Sprite == SoftSprite.Cloud)
                     {
                         clouds++;
+                        Assert.AreEqual(LeavingBurst.Fore(width, height), particle.Fore, 1e-5f, "the puff is drawn before the building it takes");
                         Assert.Greater(particle.Pop, 0f, "a cloud fades in instead of popping");
                         Assert.Greater(particle.ShrinkFrom, 0f, "a cloud fades out instead of dwindling");
                     }
@@ -463,6 +476,8 @@ namespace Lazpoly.Presentation.Tests
                 foreach (SoftParticle particle in burst.Particles)
                 {
                     if (particle.Sprite == SoftSprite.Cloud && particle.Born >= drop) clouds++;
+                    bool dust = particle.Sprite == SoftSprite.Cloud || particle.Sprite == SoftSprite.CloudLight;
+                    Assert.AreEqual(dust && particle.Born >= drop ? LeavingBurst.Fore(width, height) : 0f, particle.Fore, 1e-5f, "the dust the building falls into is drawn before it, and nothing else");
                     if (particle.Sprite == SoftSprite.Cloud) Assert.Less(Luma(particle.Color), Luma(LeavingBurst.Puff), "dust is as white as a sale's puff");
                     for (int i = 0; i <= 20; i++)
                     {
@@ -472,16 +487,30 @@ namespace Lazpoly.Presentation.Tests
 
                 Assert.AreEqual(LeavingBurst.Clouds + LeavingBurst.Plumes + LeavingBurst.Caps + LeavingBurst.Wisps, clouds);
 
-                // The dust up the walls stands clear of them (inside them it would be hidden) and no higher than the roof.
+                // The dust up the walls starts at them, no higher than the roof, and comes down with them.
                 int plumes = 2 * LeavingBurst.Kicks + 1 + 2 * LeavingBurst.Clouds;
                 for (int i = 0; i < LeavingBurst.Plumes; i++)
                 {
                     SoftParticle plume = burst.Particles[plumes + 2 * i];
                     Assert.AreEqual(SoftSprite.Cloud, plume.Sprite);
                     float out0 = new Vector2(plume.From.x - foot.x, plume.From.z - foot.z).magnitude;
-                    Assert.Greater(out0, width * 0.71f, $"plume {i} starts inside the walls");
+                    Assert.Greater(out0, width * 0.5f, $"plume {i} starts inside the walls");
+                    Assert.Less(plume.Position(1f).y, plume.From.y - height * 0.1f, $"plume {i} hangs in the air while the building falls");
                     Assert.That(plume.From.y - foot.y, Is.InRange(height * 0.3f, height * 0.8f), $"plume {i}");
                 }
+
+                // And a column of it before the building, from near its foot to its roof, falling in with it.
+                int caps = plumes + 2 * LeavingBurst.Plumes;
+                for (int i = 0; i < LeavingBurst.Caps; i++)
+                {
+                    SoftParticle cap = burst.Particles[caps + 2 * i];
+                    Assert.AreEqual(SoftSprite.Cloud, cap.Sprite);
+                    Assert.Less(new Vector2(cap.From.x - foot.x, cap.From.z - foot.z).magnitude, width * 0.25f, $"cap {i} is off the building's middle");
+                    Assert.AreEqual(Mathf.Lerp(0.2f, 0.9f, i / (LeavingBurst.Caps - 1f)) * height, cap.From.y - foot.y, 1e-4f, $"cap {i}");
+                    Assert.Less(cap.Position(1f).y - foot.y, height * 0.3f, $"cap {i} stays up when the building is down");
+                }
+
+                Assert.Greater(LeavingBurst.Fore(width, height), new Vector2(width, height * 0.5f).magnitude * 0.9f, "the dust is not drawn far enough forward to clear the building");
 
                 Color32 lit = LeavingBurst.Lit(LeavingBurst.DustTones[0]);
                 Assert.Greater(Luma(lit), Luma(LeavingBurst.DustTones[0]), "a cloud's lit side is darker than the cloud");

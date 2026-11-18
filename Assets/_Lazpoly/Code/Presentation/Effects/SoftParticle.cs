@@ -37,6 +37,12 @@ namespace Lazpoly.Presentation.Effects
         /// <summary>How far above its own place it is held, as a share of its size: a cloud sits on the ground rather than in it.</summary>
         public float Sit;
 
+        /// <summary>
+        /// How far towards the eye it is drawn from where it is: it stays in its place on the screen, but comes in front of
+        /// what stands that near before it. Dust is given it to hide the building it comes out of.
+        /// </summary>
+        public float Fore;
+
         public Color32 Color;
 
         /// <summary>How solid it is at its fullest; it comes in over the first <see cref="FadeIn"/> of its life and goes out from <see cref="FadeFrom"/> on.</summary>

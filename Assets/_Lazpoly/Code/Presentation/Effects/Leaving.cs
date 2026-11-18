@@ -21,7 +21,7 @@ namespace Lazpoly.Presentation.Effects
         /// <summary>How far it has risen, 0 to 1 of the whole way up.</summary>
         public float Lift;
 
-        /// <summary>How far it has gone down into the ground, as a share of its own height.</summary>
+        /// <summary>How far it has gone down into the ground, as a share of its own height (below 0: that far up off it).</summary>
         public float Sink;
 
         /// <summary>Degrees turned about its own upright.</summary>
@@ -46,7 +46,7 @@ namespace Lazpoly.Presentation.Effects
 
         /// <summary>
         /// A sold building ducks by <see cref="DuckBy"/> for the first <see cref="Duck"/> of its time, springs up tall
-        /// and narrow until <see cref="PopAt"/>, and is then gone at once, inside its puff.
+        /// and narrow until <see cref="PopAt"/>, and is then gone at once, into its own middle, inside its puff.
         /// </summary>
         public const float Duck = 0.4f;
         public const float DuckBy = 0.12f;
@@ -101,6 +101,8 @@ namespace Lazpoly.Presentation.Effects
                 squash = -Spring;
                 pose.Lift = SpringLift + (1f - SpringLift) * gone;
                 size = Mathf.Max(Least, 1f - Ease.OutCubic(gone));
+                // It dwindles into its own middle, where the puff is, not down to its foot below the puff.
+                pose.Sink = -(1f - size) * (1f + Spring) * 0.5f;
             }
 
             // What it loses in height it gains in width, and the other way round, as a soft thing would.

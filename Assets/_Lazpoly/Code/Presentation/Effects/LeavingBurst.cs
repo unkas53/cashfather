@@ -21,7 +21,7 @@ namespace Lazpoly.Presentation.Effects
         public const int Kicks = 4;
         public const int Clouds = 12;
         public const int Plumes = 8;
-        public const int Caps = 2;
+        public const int Caps = 4;
         public const int Grit = 10;
         public const int Wisps = 3;
         public const int Rubble = 16;
@@ -41,8 +41,12 @@ namespace Lazpoly.Presentation.Effects
         public const float RubbleSeconds = 1.3f;
         public const float RubbleGone = 0.3f;
 
-        /// <summary>How far from the middle of the building the dust up its walls starts, in its widths: outside its corners.</summary>
-        public const float PlumeReach = 0.75f;
+        /// <summary>How far from the middle of the building the dust up its walls starts, in its widths: at its walls.</summary>
+        public const float PlumeReach = 0.6f;
+
+        /// <summary>How much of its height the dust at the walls comes down in its life, and the dust before the building: they fall in with it.</summary>
+        public const float PlumeSinks = 0.6f;
+        public const float CapSinks = 0.75f;
 
         /// <summary>The longest step the rubble is moved in one go, so a slow frame cannot throw it through the ground.</summary>
         public const float Tick = 1f / 90f;
@@ -95,6 +99,7 @@ namespace Lazpoly.Presentation.Effects
         private Color32[] _colours;
         private float _tile;
         private float _bound;
+        private float _fore;
         private float _age;
         private float _seconds;
 
@@ -159,13 +164,21 @@ namespace Lazpoly.Presentation.Effects
             _particles.Add(body);
         }
 
+        /// <summary>
+        /// How far towards the eye the clouds of a building <paramref name="width"/> across and <paramref name="height"/>
+        /// high are drawn, to come in front of it wherever round it they are: without it the walls and the roof cut
+        /// them, and the building is seen falling in the open in the middle of its own dust.
+        /// </summary>
+        public static float Fore(float width, float height) => width * 0.8f + height * 0.6f;
+
         /// <summary>A dust tone's lit side.</summary>
         public static Color32 Lit(Color32 tone) => Color32.Lerp(tone, DustLight, DustLit);
 
         private void LaySale(Vector3 foot, float width, float height, float tile, float lift)
         {
             float pop = LeavingMotion.SoldSeconds * LeavingMotion.PopAt;
-            Vector3 heart = foot + Vector3.up * (lift * LeavingMotion.SpringLift + height * 0.5f);
+            // The middle of the building as it pops, sprung up tall off its tile: where it dwindles to.
+            Vector3 heart = foot + Vector3.up * (lift * LeavingMotion.SpringLift + height * (1f + LeavingMotion.Spring) * 0.5f);
 
             // Two rings of gold over the ground as it pops, the second fainter and a breath later.
             for (int i = 0; i < 2; i++)
@@ -199,7 +212,7 @@ namespace Lazpoly.Presentation.Effects
                     Sprite = SoftSprite.Cloud, Born = pop - 0.03f + (middle ? 0f : Roll(0f, 0.07f)), Life = middle ? 0.5f : Roll(0.5f, 0.7f),
                     From = heart + off * (width * 0.2f), Drift = off * (Roll(0.2f, 0.36f) * tile), Rise = 0.06f * tile,
                     SizeFrom = size * 0.6f, SizeTo = size, Pop = 0.22f, ShrinkFrom = 0.4f,
-                    Color = Puff, Alpha = 1f, FadeFrom = 0.9f, Turn = Roll(-18f, 18f),
+                    Color = Puff, Alpha = 1f, FadeFrom = 0.9f, Turn = Roll(-18f, 18f), Fore = Fore(width, height),
                 }, SoftSprite.CloudLight, PuffLight);
             }
 
@@ -228,6 +241,7 @@ namespace Lazpoly.Presentation.Effects
             cloud.Alpha = 1f;
             cloud.FadeFrom = 0.9f;
             cloud.Turn = Roll(-18f, 18f);
+            cloud.Fore = _fore;
             Pair(cloud, SoftSprite.CloudLight, Lit(cloud.Color));
         }
 
@@ -247,6 +261,9 @@ namespace Lazpoly.Presentation.Effects
                 }, i);
             }
 
+            // From here on the dust is drawn in front of the building: it is what the building goes down into.
+            _fore = Fore(width, height);
+
             // As it gives way a ring of dust runs out over the ground.
             _particles.Add(new SoftParticle
             {
@@ -263,33 +280,35 @@ namespace Lazpoly.Presentation.Effects
                 Dust(new SoftParticle
                 {
                     Born = drop + 0.25f * i / Clouds + Roll(0f, 0.03f), Life = Roll(0.8f, 1.15f),
-                    From = foot + way * (width * 0.35f), Drift = way * (Roll(0.18f, 0.34f) * tile), Rise = Roll(0.05f, 0.2f) * tile,
-                    SizeFrom = 0.18f * tile, SizeTo = Roll(0.34f, 0.46f) * tile, Sit = 0.3f, Pop = 0.2f, ShrinkFrom = 0.5f,
+                    From = foot + way * (width * 0.35f), Drift = way * (Roll(0.12f, 0.24f) * tile), Rise = Roll(0.05f, 0.18f) * tile,
+                    SizeFrom = 0.16f * tile, SizeTo = Roll(0.3f, 0.4f) * tile, Sit = 0.3f, Pop = 0.2f, ShrinkFrom = 0.5f,
                 }, i);
             }
 
-            // And up its walls all round as it goes down, so it drops out of sight into dust, not into the open: these
-            // stand clear of the walls (a cloud inside them would be hidden by them) and hang there, swelling.
+            // And up its walls all round, coming down with them, so it drops out of sight into dust, not into the open.
             for (int i = 0; i < Plumes; i++)
             {
                 Vector3 way = Round(i, Plumes, 0.2f);
+                float start = Roll(0.3f, 0.8f) * height;
                 Dust(new SoftParticle
                 {
                     Born = drop + 0.05f + 0.25f * i / Plumes + Roll(0f, 0.04f), Life = Roll(0.85f, 1.1f),
-                    From = foot + way * (width * PlumeReach) + Vector3.up * (Roll(0.3f, 0.8f) * height),
-                    Drift = way * (Roll(0.04f, 0.12f) * tile), Rise = Roll(-0.1f, 0.06f) * tile,
-                    SizeFrom = 0.22f * tile, SizeTo = Roll(0.42f, 0.54f) * tile, Pop = 0.2f, ShrinkFrom = 0.55f,
+                    From = foot + way * (width * PlumeReach) + Vector3.up * start,
+                    Drift = way * (Roll(0.02f, 0.08f) * tile), Rise = -start * PlumeSinks,
+                    SizeFrom = 0.2f * tile, SizeTo = Roll(0.36f, 0.46f) * tile, Pop = 0.2f, ShrinkFrom = 0.55f,
                 }, i + 1);
             }
 
-            // And over the roof, coming down with it, so it is not seen from above either.
+            // And a column of it before the building itself, from near its foot to its roof, falling in as it does: the
+            // middle of the cloud, which a ring of dust alone leaves open.
             for (int i = 0; i < Caps; i++)
             {
+                float start = Mathf.Lerp(0.2f, 0.9f, i / (Caps - 1f)) * height;
                 Dust(new SoftParticle
                 {
-                    Born = drop + 0.2f + 0.12f * i, Life = Roll(0.85f, 0.95f),
-                    From = foot + new Vector3(Roll(-0.1f, 0.1f) * width, 0.9f * height, Roll(-0.1f, 0.1f) * width), Rise = -0.4f * height,
-                    SizeFrom = 0.24f * tile, SizeTo = Roll(0.46f, 0.52f) * tile, Pop = 0.2f, ShrinkFrom = 0.55f,
+                    Born = drop + 0.1f + 0.05f * i, Life = Roll(0.85f, 0.95f),
+                    From = foot + new Vector3(Roll(-0.15f, 0.15f) * width, start, Roll(-0.15f, 0.15f) * width), Rise = -start * CapSinks,
+                    SizeFrom = 0.22f * tile, SizeTo = Roll(0.4f, 0.46f) * tile, Pop = 0.2f, ShrinkFrom = 0.55f,
                 }, i);
             }
 
@@ -517,10 +536,14 @@ namespace Lazpoly.Presentation.Effects
 
         /// <summary>
         /// The four corners of a soft piece at <paramref name="age"/> of its life, for an eye whose right and up are
-        /// <paramref name="right"/> and <paramref name="up"/>: lower left, lower right, upper right, upper left.
+        /// <paramref name="right"/> and <paramref name="up"/>: lower left, lower right, upper right, upper left. A piece
+        /// with <see cref="SoftParticle.Fore"/> is drawn that much nearer the eye, so it stays where it is on the screen
+        /// (the game's view has no perspective) but comes in front of the building it would otherwise be cut by.
         /// </summary>
         public static void Quad(SoftParticle particle, float age, Vector3 right, Vector3 up, out Vector3 a, out Vector3 b, out Vector3 c, out Vector3 d)
         {
+            // Towards the eye is out of the plane it faces; a piece on the ground stays where it lies.
+            Vector3 near = particle.Flat ? Vector3.zero : Vector3.Cross(up, right) * particle.Fore;
             if (particle.Flat)
             {
                 right = Vector3.right;
@@ -532,7 +555,7 @@ namespace Lazpoly.Presentation.Effects
             float half = particle.Size(age) * 0.5f;
             Vector3 across = (right * cos + up * sin) * half;
             Vector3 along = (up * cos - right * sin) * half;
-            Vector3 middle = particle.Position(age);
+            Vector3 middle = particle.Position(age) + near;
             a = middle - across - along;
             b = middle + across - along;
             c = middle + across + along;

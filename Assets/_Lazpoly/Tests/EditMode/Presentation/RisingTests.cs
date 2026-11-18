@@ -117,7 +117,7 @@ namespace Lazpoly.Presentation.Tests
                             Assert.AreEqual(RisingMotion.KnockGap, particle.Born, 1e-4f, "the ring runs out at the second blow");
                             Assert.Greater(particle.SizeTo, particle.SizeFrom);
                             Assert.LessOrEqual(particle.SizeTo, tile * 1.15f + 1e-4f, "the ring runs far over the neighbours");
-                            Assert.Less(particle.Alpha, 0.8f, "a ring of dust is faint");
+                            Assert.That(particle.Alpha, Is.InRange(0.7f, 0.95f), "a ring of dust is seen beside the puffs, but is no line drawn on the ground");
                             break;
                         case SoftSprite.Dot:
                             chips++;

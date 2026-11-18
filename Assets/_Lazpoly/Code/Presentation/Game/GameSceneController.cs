@@ -864,6 +864,8 @@ namespace Lazpoly.Presentation.Game
             _board = BoardView.Create(transform, _data);
             _board.LeavingStarted += OnLeavingStarted;
             _board.RisingStarted += OnRisingStarted;
+            // The dust's shapes are drawn now, not in the frame the first building of the game goes up.
+            SoftSprites.Material();
             StartCoroutine(Lazpoly.Presentation.Models.MoneyBundle.Preload()); // Read over the first frames, ready before the first payment.
             Markers = SquareMarkers.Create(_board);
             // The dice land on the lawn, below the middle of the screen so they stay clear of the score.

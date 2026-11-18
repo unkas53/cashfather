@@ -32,6 +32,9 @@ namespace Lazpoly.Presentation.Effects
         /// <summary>How much larger a hotel's dust is.</summary>
         public const float GrandSize = 1.25f;
 
+        /// <summary>How solid a house's ring of dust is: it runs out from under the puffs, so it has to be seen beside them.</summary>
+        public const float RingAlpha = 0.85f;
+
         /// <summary>Chips of fresh wood.</summary>
         public static readonly Color32 Chip = new Color32(226, 188, 128, 255);
 
@@ -81,7 +84,7 @@ namespace Lazpoly.Presentation.Effects
                 {
                     Sprite = SoftSprite.Ring, Flat = true, Born = knock + 0.12f * i, Life = grand ? 0.55f : 0.45f,
                     From = foot + Vector3.up * (tile * 0.012f), SizeFrom = width * 0.9f, SizeTo = Mathf.Min(tile * 1.15f, Mathf.Max(width * 2.2f, tile * 0.8f)) * (grand ? 1f : 0.9f),
-                    Color = !grand ? DustTones[1] : i == 0 ? Gold : PaleGold, Alpha = !grand ? 0.6f : i == 0 ? 1f : 0.65f, FadeIn = 0.1f, FadeFrom = 0.3f,
+                    Color = !grand ? DustTones[1] : i == 0 ? Gold : PaleGold, Alpha = !grand ? RingAlpha : i == 0 ? 1f : 0.65f, FadeIn = 0.1f, FadeFrom = grand ? 0.3f : 0.45f,
                 });
             }
 

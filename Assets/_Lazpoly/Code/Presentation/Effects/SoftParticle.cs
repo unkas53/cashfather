@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Lazpoly.Presentation.Effects
 {
     /// <summary>
-    /// One soft piece of an effect (a dust cloud, a glint, a ring on the ground): everything about its short life is
+    /// One soft piece of an effect (a dust cloud, a dollar sign, a ring on the ground): everything about its short life is
     /// laid down when it is made, so where it is, how big and how clear at any moment is plain arithmetic that can be
     /// tested without a clock. Lengths are in the units of whatever it is drawn under.
     /// </summary>
@@ -27,6 +27,13 @@ namespace Lazpoly.Presentation.Effects
         public float SizeFrom;
         public float SizeTo;
 
+        /// <summary>
+        /// It pops in over the first <see cref="Pop"/> of its life (a little past its size and back, 0 for not at all),
+        /// and from <see cref="ShrinkFrom"/> on it dwindles to nothing, as a cartoon cloud does (0 for not at all).
+        /// </summary>
+        public float Pop;
+        public float ShrinkFrom;
+
         /// <summary>How far above its own place it is held, as a share of its size: a cloud sits on the ground rather than in it.</summary>
         public float Sit;
 
@@ -44,10 +51,6 @@ namespace Lazpoly.Presentation.Effects
         public float Turn;
         public float Spin;
 
-        /// <summary>How deep its size flickers (0 not at all) and how many times in its life.</summary>
-        public float Twinkle;
-        public float Beats;
-
         /// <summary>How far through its life it is at <paramref name="time"/>: below 0 not yet there, 1 and above gone.</summary>
         public float Age(float time) => Life <= 0f ? 1f : (time - Born) / Life;
 
@@ -60,8 +63,10 @@ namespace Lazpoly.Presentation.Effects
         public float Size(float age)
         {
             age = Mathf.Clamp01(age);
-            float flicker = 1f - Twinkle * (0.5f - 0.5f * Mathf.Cos(age * Beats * 2f * Mathf.PI));
-            return Mathf.Lerp(SizeFrom, SizeTo, Ease.OutCubic(age)) * flicker;
+            float size = Mathf.Lerp(SizeFrom, SizeTo, Ease.OutCubic(age));
+            if (Pop > 0f && age < Pop) size *= Mathf.Max(0f, Ease.OutBack(age / Pop));
+            if (ShrinkFrom > 0f && age > ShrinkFrom) size *= 1f - Ease.InCubic((age - ShrinkFrom) / (1f - ShrinkFrom));
+            return size;
         }
 
         public Vector3 Position(float age)

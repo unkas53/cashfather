@@ -3,35 +3,54 @@ using UnityEngine;
 
 namespace Lazpoly.Presentation.Effects
 {
-    /// <summary>The soft shapes an effect is drawn with (<see cref="SoftSprites"/>).</summary>
+    /// <summary>The shapes an effect is drawn with (<see cref="SoftSprites"/>).</summary>
     public enum SoftSprite
     {
-        /// <summary>A lumpy cloud with a feathered edge: dust and smoke.</summary>
-        Puff,
+        /// <summary>A cartoon cloud: a lumpy ball with a clean edge. Dust, and the puff a sold building goes in.</summary>
+        Cloud,
 
-        /// <summary>A four-pointed glint with a bright heart.</summary>
-        Star,
+        /// <summary>The lit side of a <see cref="Cloud"/>: the same ball a size smaller, up and to the left, drawn over it in a lighter tone.</summary>
+        CloudLight,
 
-        /// <summary>A thin ring with soft sides: a wave spreading over the ground.</summary>
+        /// <summary>A ring with soft sides: a wave spreading over the ground.</summary>
         Ring,
 
         /// <summary>A round glow, brightest in the middle.</summary>
         Dot,
+
+        /// <summary>A bold dollar sign with a clean edge (the owner's wish, 2026-11-18).</summary>
+        Dollar,
+
+        /// <summary>The dark rim under a <see cref="Dollar"/>: the same sign a stroke thicker.</summary>
+        DollarEdge,
     }
 
     /// <summary>
-    /// The pictures behind the game's soft effects (the owner's wish, 2026-11-17: the leaving of a building should look
-    /// professional): four see-through shapes drawn in code on one sheet, their edges feathered so that a quad wearing
-    /// one never shows its corners. They are drawn with the board's print shader, which blends over what is behind,
-    /// tests depth (a house hides the dust behind it) and takes its colour from the quad's corners.
+    /// The pictures behind the game's effects (the owner's wishes, 2026-11-17 and 18: the leaving of a building should
+    /// look professional and suit the game, with dollar signs for the gold glints): see-through shapes drawn in code on
+    /// one sheet. The clouds and the dollar signs have clean cartoon edges, as the game's models do; the ring and the
+    /// glow are soft. They are drawn with the board's print shader, which blends over what is behind, tests depth (a
+    /// house hides the dust behind it) and takes its colour from the quad's corners; a shape of two tones is two quads.
     /// </summary>
     public static class SoftSprites
     {
-        /// <summary>Each shape's square on the sheet, in pixels; the sheet is two by two of them.</summary>
+        /// <summary>Each shape's square on the sheet, in pixels, and how many stand in a row and how many rows.</summary>
         public const int Cell = 128;
+        public const int Columns = 4;
+        public const int Rows = 2;
 
         /// <summary>The effects draw after the board's own print and its lettering.</summary>
         public const int Layer = 40;
+
+        /// <summary>Half the width of a clean edge's feather, in a shape's own units: a pixel or so on the sheet.</summary>
+        public const float Feather = 0.02f;
+
+        /// <summary>The dollar sign: its two bows' radius, their stroke's and the bar's half widths, how far the bar reaches, and how much thicker the rim is.</summary>
+        public const float Bow = 0.25f;
+        public const float Stroke = 0.095f;
+        public const float Bar = 0.055f;
+        public const float BarReach = 0.7f;
+        public const float Rim = 0.075f;
 
         private static Texture2D _sheet;
 
@@ -47,21 +66,12 @@ namespace Lazpoly.Presentation.Effects
             float alpha;
             switch (sprite)
             {
-                case SoftSprite.Puff:
-                    alpha = Puff(x, y);
+                case SoftSprite.Cloud:
+                    alpha = Solid(-CloudDistance(x, y));
                     break;
-                case SoftSprite.Star:
-                {
-                    // Two thin crossed rays that taper to their tips, and a round heart.
-                    float along = Mathf.Max(Mathf.Abs(x), Mathf.Abs(y));
-                    float across = Mathf.Min(Mathf.Abs(x), Mathf.Abs(y));
-                    float width = 0.15f * (1f - along / 0.92f);
-                    float ray = width <= 0f ? 0f : Mathf.Clamp01(1f - across / width);
-                    float heart = Mathf.Exp(-r * r / 0.045f);
-                    alpha = Mathf.Clamp01(ray * ray * (1f - along * 0.5f) + heart);
+                case SoftSprite.CloudLight:
+                    alpha = Solid(-CloudDistance((x + 0.09f) / 0.74f, (y - 0.12f) / 0.74f) * 0.74f);
                     break;
-                }
-
                 case SoftSprite.Ring:
                 {
                     float off = (r - 0.78f) / 0.1f;
@@ -69,6 +79,12 @@ namespace Lazpoly.Presentation.Effects
                     break;
                 }
 
+                case SoftSprite.Dollar:
+                    alpha = Solid(-DollarDistance(x, y));
+                    break;
+                case SoftSprite.DollarEdge:
+                    alpha = Solid(Rim - DollarDistance(x, y));
+                    break;
                 default:
                     alpha = Mathf.Exp(-r * r / 0.16f) * Mathf.Clamp01((1f - r) / 0.25f);
                     break;
@@ -77,44 +93,69 @@ namespace Lazpoly.Presentation.Effects
             return Mathf.Clamp01(alpha) * edge;
         }
 
-        /// <summary>The cloud: a heart and five lobes round it, each a soft ball, so its outline is lumpy rather than round.</summary>
-        private static float Puff(float x, float y)
+        /// <summary>A clean edge: solid <paramref name="inside"/> the shape, clear outside, with a feather a pixel wide between.</summary>
+        private static float Solid(float inside) => Mathf.Clamp01(inside / (2f * Feather) + 0.5f);
+
+        /// <summary>How far a point is outside the cloud (below 0 inside it): a heart and six lobes round it, each a ball, so its outline is lumpy.</summary>
+        public static float CloudDistance(float x, float y)
         {
-            float clear = 1f - Lobe(x, y, 0f, 0f, 0.52f);
-            for (int i = 0; i < 5; i++)
+            float distance = Mathf.Sqrt(x * x + y * y) - 0.5f;
+            for (int i = 0; i < 6; i++)
             {
-                float angle = 0.7f + i * (2f * Mathf.PI / 5f);
-                float reach = i % 2 == 0 ? 0.36f : 0.3f;
-                clear *= 1f - 0.85f * Lobe(x, y, Mathf.Cos(angle) * reach, Mathf.Sin(angle) * reach, i % 2 == 0 ? 0.36f : 0.42f);
+                float angle = 0.5f + i * (Mathf.PI / 3f);
+                float reach = i % 2 == 0 ? 0.42f : 0.36f;
+                float radius = i % 2 == 0 ? 0.34f : 0.4f;
+                float dx = x - Mathf.Cos(angle) * reach, dy = y - Mathf.Sin(angle) * reach;
+                distance = Mathf.Min(distance, Mathf.Sqrt(dx * dx + dy * dy) - radius);
             }
 
-            return 1f - clear;
+            return distance;
         }
 
-        private static float Lobe(float x, float y, float cx, float cy, float radius)
+        /// <summary>
+        /// How far a point is outside the dollar sign (below 0 inside it): an S of two bows, the upper open to the
+        /// right below its top, the lower open to the left above its foot, and an upright bar through both.
+        /// </summary>
+        public static float DollarDistance(float x, float y)
         {
-            float d = Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / radius;
-            if (d >= 1f) return 0f;
-            float soft = 1f - d * d;
-            return soft * soft;
+            // The upper bow runs from its tip at the right, over the top and down the left to the middle; the lower one
+            // is the same turned half round.
+            float upper = BowDistance(x, y - Bow);
+            float lower = BowDistance(-x, -y - Bow);
+            float bar = Mathf.Sqrt(x * x + Mathf.Pow(Mathf.Max(0f, Mathf.Abs(y) - BarReach), 2f)) - Bar;
+            return Mathf.Min(Mathf.Min(upper, lower) - Stroke, bar);
+        }
+
+        /// <summary>The distance to a bow's middle line: three quarters and a little of a circle about the origin, from 35 degrees round to 270.</summary>
+        private static float BowDistance(float x, float y)
+        {
+            const float first = 35f * Mathf.Deg2Rad, last = 270f * Mathf.Deg2Rad;
+            float angle = Mathf.Atan2(y, x);
+            if (angle < 0f) angle += 2f * Mathf.PI;
+            if (angle >= first && angle <= last) return Mathf.Abs(Mathf.Sqrt(x * x + y * y) - Bow);
+            float ax = x - Mathf.Cos(first) * Bow, ay = y - Mathf.Sin(first) * Bow;
+            float bx = x - Mathf.Cos(last) * Bow, by = y - Mathf.Sin(last) * Bow;
+            return Mathf.Sqrt(Mathf.Min(ax * ax + ay * ay, bx * bx + by * by));
         }
 
         /// <summary>Where <paramref name="sprite"/> lies on the sheet: its lower left corner and its size, in texture coordinates.</summary>
         public static Rect Uv(SoftSprite sprite)
         {
             int index = (int)sprite;
-            return new Rect((index % 2) * 0.5f, (index / 2) * 0.5f, 0.5f, 0.5f);
+            return new Rect((index % Columns) / (float)Columns, (index / Columns) / (float)Rows, 1f / Columns, 1f / Rows);
         }
 
         /// <summary>The sheet itself: white, with the shapes in its alpha. Drawn once and kept.</summary>
         public static Texture2D Sheet()
         {
             if (_sheet != null) return _sheet;
-            int side = Cell * 2;
-            var pixels = new Color32[side * side];
-            for (int index = 0; index < 4; index++)
+            int wide = Cell * Columns, high = Cell * Rows;
+            var pixels = new Color32[wide * high];
+            int shapes = System.Enum.GetValues(typeof(SoftSprite)).Length;
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = new Color32(255, 255, 255, 0);
+            for (int index = 0; index < shapes; index++)
             {
-                int left = (index % 2) * Cell, bottom = (index / 2) * Cell;
+                int left = (index % Columns) * Cell, bottom = (index / Columns) * Cell;
                 for (int py = 0; py < Cell; py++)
                 {
                     for (int px = 0; px < Cell; px++)
@@ -122,12 +163,12 @@ namespace Lazpoly.Presentation.Effects
                         float x = (px + 0.5f) / Cell * 2f - 1f;
                         float y = (py + 0.5f) / Cell * 2f - 1f;
                         byte alpha = (byte)Mathf.RoundToInt(Alpha((SoftSprite)index, x, y) * 255f);
-                        pixels[(bottom + py) * side + left + px] = new Color32(255, 255, 255, alpha);
+                        pixels[(bottom + py) * wide + left + px] = new Color32(255, 255, 255, alpha);
                     }
                 }
             }
 
-            _sheet = new Texture2D(side, side, TextureFormat.RGBA32, false, true)
+            _sheet = new Texture2D(wide, high, TextureFormat.RGBA32, false, true)
             {
                 name = "Soft sprites",
                 wrapMode = TextureWrapMode.Clamp,
@@ -139,7 +180,7 @@ namespace Lazpoly.Presentation.Effects
             return _sheet;
         }
 
-        /// <summary>The one material every soft effect shares (its colours ride on the quads); null when the print shader is not in the build.</summary>
+        /// <summary>The one material every effect shares (its colours ride on the quads); null when the print shader is not in the build.</summary>
         public static Material Material() => PrintMaterial.ForPicture(Sheet(), Layer);
     }
 }

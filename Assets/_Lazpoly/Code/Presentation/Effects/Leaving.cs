@@ -3,11 +3,11 @@ using UnityEngine;
 namespace Lazpoly.Presentation.Effects
 {
     /// <summary>
-    /// How a building leaves its square (the owner's wishes, 2026-11-17: a fine animation when a town is sold and when it
-    /// is torn down, and a professional one). Sold, it swells a touch, then is drawn up into a point of light and is gone
-    /// in a flash with glints flying. Torn down, it is jolted, gives way and drops into its own rolling cloud of dust
-    /// (going down into the ground as much as it is crushed, so it never flattens like a box) while its rubble is thrown
-    /// out, bounces and lies.
+    /// How a building leaves its square (the owner's wishes, 2026-11-17 and 18: a fine animation when a town is sold and
+    /// when it is torn down, professional, and in keeping with the game). Sold, it ducks, springs up and is gone in a
+    /// puff of cloud out of which dollar signs rise. Torn down, it is jolted, gives way and drops into its own cloud of
+    /// dust (going down into the ground as much as it is crushed, so it never flattens like a box) while its rubble is
+    /// thrown out, bounces and lies.
     /// </summary>
     public enum Leaving
     {
@@ -41,18 +41,20 @@ namespace Lazpoly.Presentation.Effects
     public static class LeavingMotion
     {
         /// <summary>How long a sold building takes to go, and a torn-down one. Their effects (<see cref="LeavingBurst"/>) outlast them.</summary>
-        public const float SoldSeconds = 0.7f;
-        public const float DemolishedSeconds = 0.9f;
+        public const float SoldSeconds = 0.6f;
+        public const float DemolishedSeconds = 1f;
 
-        /// <summary>A sold building swells by <see cref="SwellBy"/> over this share of its time, then is drawn up thin and tall, turning a little, into nothing.</summary>
-        public const float Swell = 0.25f;
-        public const float SwellBy = 0.08f;
-        public const float Thin = 0.3f;
-        public const float Tall = 0.35f;
-        public const float Twist = 90f;
+        /// <summary>
+        /// A sold building ducks by <see cref="DuckBy"/> for the first <see cref="Duck"/> of its time, springs up tall
+        /// and narrow until <see cref="PopAt"/>, and is then gone at once, inside its puff.
+        /// </summary>
+        public const float Duck = 0.4f;
+        public const float DuckBy = 0.12f;
+        public const float Spring = 0.16f;
+        public const float PopAt = 0.75f;
 
-        /// <summary>The share of a sold building's time at which its light flashes: just before the last of it is gone.</summary>
-        public const float FlashAt = 0.84f;
+        /// <summary>How much of its way up it has gone when it pops; the rest it rises as it vanishes.</summary>
+        public const float SpringLift = 0.6f;
 
         /// <summary>A torn-down building is jolted for this share of its time, settling by <see cref="Settle"/>; then it drops, leaning and rumbling.</summary>
         public const float Jolt = 0.2f;
@@ -69,31 +71,40 @@ namespace Lazpoly.Presentation.Effects
         /// <summary>The smallest a leaving building is drawn, so its size never turns to nothing while it is still shown.</summary>
         public const float Least = 0.02f;
 
-        /// <summary>The share of its time at which what stays behind (a lower house, the plot) shows again: behind the flash, or inside the dust.</summary>
+        /// <summary>The share of its time at which what stays behind (a lower house, the plot) shows again: inside the puff, or inside the dust.</summary>
         public const float UncoverAt = 0.88f;
 
         public static float Seconds(Leaving how) => how == Leaving.Demolished ? DemolishedSeconds : SoldSeconds;
 
         public static LeavingPose At(Leaving how, float t) => how == Leaving.Demolished ? Demolished(t) : Sold(t);
 
-        /// <summary>Sold: a small swell, as a breath taken, then up, thinner and taller, turning, to a point.</summary>
+        /// <summary>Sold: down into a duck, wider as it is lower; up out of it tall and narrow, off the tile; then gone in a blink.</summary>
         public static LeavingPose Sold(float t)
         {
             t = Mathf.Clamp01(t);
             var pose = new LeavingPose();
-            if (t < Swell)
+            float squash;
+            float size = 1f;
+            if (t < Duck)
             {
-                pose.Scale = Vector3.one * (1f + SwellBy * Ease.OutCubic(t / Swell));
-                return pose;
+                squash = DuckBy * Ease.OutCubic(t / Duck);
+            }
+            else if (t < PopAt)
+            {
+                float up = Ease.OutCubic((t - Duck) / (PopAt - Duck));
+                squash = Mathf.Lerp(DuckBy, -Spring, up);
+                pose.Lift = SpringLift * up;
+            }
+            else
+            {
+                float gone = (t - PopAt) / (1f - PopAt);
+                squash = -Spring;
+                pose.Lift = SpringLift + (1f - SpringLift) * gone;
+                size = Mathf.Max(Least, 1f - Ease.OutCubic(gone));
             }
 
-            float away = (t - Swell) / (1f - Swell);
-            float size = (1f + SwellBy) * (1f - Ease.InCubic(away));
-            float thin = 1f - Thin * away * away;
-            float tall = 1f + Tall * away * away;
-            pose.Lift = Ease.InOutCubic(away);
-            pose.Turn = Twist * Ease.InCubic(away);
-            pose.Scale = new Vector3(Mathf.Max(Least, size * thin), Mathf.Max(Least, size * tall), Mathf.Max(Least, size * thin));
+            // What it loses in height it gains in width, and the other way round, as a soft thing would.
+            pose.Scale = new Vector3(1f + squash * 0.6f, 1f - squash, 1f + squash * 0.6f) * size;
             return pose;
         }
 

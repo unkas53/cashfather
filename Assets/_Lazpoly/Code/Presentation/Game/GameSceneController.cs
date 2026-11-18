@@ -1351,8 +1351,8 @@ namespace Lazpoly.Presentation.Game
             }
 
             // A building leaving (the owner's wish, 2026-11-17), caught on its way: sold, and torn down.
-            yield return TourLeaving(Leaving.Sold, "bina-satis", 0.5f, 0.74f);
-            yield return TourLeaving(Leaving.Demolished, "bina-yikim", 0.5f, 1.1f);
+            yield return TourLeaving(Leaving.Sold, "bina-satis", 0.52f, 0.95f);
+            yield return TourLeaving(Leaving.Demolished, "bina-yikim", 0.6f, 1f);
 
             // The other cards in the middle, one of each (the owner's wish, 2026-11-09): a drawn money card and a drawn
             // strategy card, a trade's result and a player who cannot pay.

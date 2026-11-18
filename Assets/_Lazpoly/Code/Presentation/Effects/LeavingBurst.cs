@@ -5,46 +5,68 @@ using UnityEngine;
 namespace Lazpoly.Presentation.Effects
 {
     /// <summary>
-    /// What is in the air as a building leaves (the owner's wish, 2026-11-17: professional). Sold: a ring of gold light
-    /// spreads from its foot, motes drift up out of it, and where it vanishes a soft flash opens and glints fly out,
-    /// twinkling as they droop. Torn down: wisps at the jolt, then a rolling cloud of dust from its foot and up its
-    /// height, a ring over the ground, grit, and rubble in the colour of its walls thrown out to bounce and lie.
-    /// The soft pieces are quads of one mesh that face the eye (<see cref="SoftParticle"/>, <see cref="SoftSprites"/>);
-    /// the rubble is solid and casts shadows. It clears itself away.
+    /// What is in the air as a building leaves (the owner's wishes, 2026-11-17 and 18: professional, in keeping with the
+    /// game, and dollar signs for the gold glints). Sold: a ring of gold spreads over the ground, the building is gone
+    /// in a flash and a puff of white cloud, and dollar signs spring up out of it, gold and money green, hang, and
+    /// fade. Torn down: puffs at the jolt, then cartoon dust bursting out from the foot and up its height, a ring over
+    /// the ground, grit, and rubble in the colour of its walls thrown out to bounce and lie. The clouds are the game's
+    /// kind: clean shapes of two tones that pop out and dwindle away, not smoke. Everything see-through is a quad of one
+    /// mesh that faces the eye (<see cref="SoftParticle"/>, <see cref="SoftSprites"/>); the rubble is solid and casts
+    /// shadows. It clears itself away.
     /// </summary>
     public sealed class LeavingBurst : MonoBehaviour
     {
-        public const int Motes = 14;
-        public const int Glints = 12;
-        public const int Wisps = 5;
-        public const int Clouds = 16;
+        public const int Poofs = 9;
+        public const int Dollars = 11;
+        public const int Kicks = 4;
+        public const int Clouds = 12;
         public const int Plumes = 8;
-        public const int Grit = 12;
-        public const int Haze = 3;
+        public const int Caps = 2;
+        public const int Grit = 10;
+        public const int Wisps = 3;
         public const int Rubble = 16;
 
-        /// <summary>The soft pieces of each leaving: sold, two rings, the motes, the flash and its big glint, the glints; torn down, the wisps, a ring, the clouds, the plumes, the grit, the haze.</summary>
-        public const int SoldParticles = 2 + Motes + 2 + Glints;
-        public const int DemolishedParticles = Wisps + 1 + Clouds + Plumes + Grit + Haze;
+        /// <summary>
+        /// The quads of each leaving (a cloud and a dollar sign are two each: its body and its lit side or rim). Sold: two
+        /// rings, the flash, the puff, the dollar signs. Torn down: the jolt's puffs, a ring, the clouds, the plumes, the
+        /// caps, the grit, the last wisps.
+        /// </summary>
+        public const int SoldParticles = 2 + 1 + 2 * Poofs + 2 * Dollars;
+        public const int DemolishedParticles = 2 * Kicks + 1 + 2 * Clouds + 2 * Plumes + 2 * Caps + Grit + 2 * Wisps;
 
         /// <summary>How the rubble falls, bounces and lies, in widths of the square (per second where it is a speed).</summary>
         public const float Gravity = 7.5f;
         public const float Bounce = 0.32f;
         public const float Grip = 0.5f;
-        public const float RubbleSeconds = 1.5f;
+        public const float RubbleSeconds = 1.3f;
         public const float RubbleGone = 0.3f;
+
+        /// <summary>How far from the middle of the building the dust up its walls starts, in its widths: outside its corners.</summary>
+        public const float PlumeReach = 0.75f;
 
         /// <summary>The longest step the rubble is moved in one go, so a slow frame cannot throw it through the ground.</summary>
         public const float Tick = 1f / 90f;
 
-        public static readonly Color32 Gold = new Color32(255, 196, 64, 255);
-        public static readonly Color32 PaleGold = new Color32(255, 236, 170, 255);
+        /// <summary>Gold and money green, as the game's gold bars and banknotes, each with the dark rim that keeps a sign readable over any square.</summary>
+        public static readonly Color32 Gold = new Color32(255, 204, 64, 255);
+        public static readonly Color32 GoldRim = new Color32(124, 74, 10, 255);
+        public static readonly Color32 Money = new Color32(126, 200, 110, 255);
+        public static readonly Color32 MoneyRim = new Color32(28, 88, 44, 255);
+        public static readonly Color32 PaleGold = new Color32(255, 232, 160, 255);
         public static readonly Color32 Light = new Color32(255, 247, 222, 255);
+
+        /// <summary>The sale's puff: white cloud, a touch warm, and its lit side.</summary>
+        public static readonly Color32 Puff = new Color32(232, 226, 214, 255);
+        public static readonly Color32 PuffLight = new Color32(255, 253, 246, 255);
+
+        /// <summary>Dust in three tones, and how far each tone's lit side is lifted towards <see cref="DustLight"/>.</summary>
         public static readonly Color32[] DustTones =
         {
-            new Color32(172, 161, 147, 255), new Color32(146, 135, 122, 255), new Color32(194, 185, 172, 255),
+            new Color32(186, 170, 148, 255), new Color32(168, 152, 132, 255), new Color32(200, 186, 166, 255),
         };
 
+        public static readonly Color32 DustLight = new Color32(244, 236, 222, 255);
+        public const float DustLit = 0.55f;
         public static readonly Color32 GritTone = new Color32(96, 84, 72, 255);
 
         private sealed class Chunk
@@ -101,7 +123,7 @@ namespace Lazpoly.Presentation.Effects
         /// </summary>
         public static LeavingBurst Play(Transform parent, Leaving how, Vector3 foot, float width, float height, float tile, float lift, Color wall, int seed, float bound = 0f)
         {
-            var root = new GameObject(how == Leaving.Demolished ? "Demolition dust" : "Sale light");
+            var root = new GameObject(how == Leaving.Demolished ? "Demolition dust" : "Sale puff");
             root.transform.SetParent(parent, false);
             var burst = root.AddComponent<LeavingBurst>();
             burst._how = how;
@@ -128,122 +150,147 @@ namespace Lazpoly.Presentation.Effects
             return new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
         }
 
+        /// <summary>Lays a shape of two tones: <paramref name="body"/> as given, and over it the same piece wearing <paramref name="top"/> in <paramref name="tone"/>.</summary>
+        private void Pair(SoftParticle body, SoftSprite top, Color32 tone)
+        {
+            _particles.Add(body);
+            body.Sprite = top;
+            body.Color = tone;
+            _particles.Add(body);
+        }
+
+        /// <summary>A dust tone's lit side.</summary>
+        public static Color32 Lit(Color32 tone) => Color32.Lerp(tone, DustLight, DustLit);
+
         private void LaySale(Vector3 foot, float width, float height, float tile, float lift)
         {
-            float flash = LeavingMotion.SoldSeconds * LeavingMotion.FlashAt;
-            Vector3 gone = foot + Vector3.up * (lift + height * 0.12f);
-            float ring = Mathf.Min(tile * 1.1f, Mathf.Max(width * 2.4f, tile * 0.8f));
+            float pop = LeavingMotion.SoldSeconds * LeavingMotion.PopAt;
+            Vector3 heart = foot + Vector3.up * (lift * LeavingMotion.SpringLift + height * 0.5f);
 
-            // Two rings of light over the ground, the second fainter and a breath later.
+            // Two rings of gold over the ground as it pops, the second fainter and a breath later.
             for (int i = 0; i < 2; i++)
             {
                 _particles.Add(new SoftParticle
                 {
-                    Sprite = SoftSprite.Ring, Flat = true, Born = 0.12f * i, Life = 0.6f,
-                    From = foot + Vector3.up * (tile * 0.012f), SizeFrom = width * 0.8f, SizeTo = ring,
+                    Sprite = SoftSprite.Ring, Flat = true, Born = pop - 0.04f + 0.11f * i, Life = 0.55f,
+                    From = foot + Vector3.up * (tile * 0.012f), SizeFrom = width * 0.8f, SizeTo = Mathf.Min(tile * 1.15f, Mathf.Max(width * 2.4f, tile * 0.8f)),
                     Color = i == 0 ? Gold : PaleGold, Alpha = i == 0 ? 1f : 0.65f, FadeIn = 0.12f, FadeFrom = 0.35f,
                 });
             }
 
-            // Motes of light drift up out of the building while it is drawn away.
-            for (int i = 0; i < Motes; i++)
-            {
-                Vector3 inside = new Vector3(Roll(-0.45f, 0.45f) * width, Roll(0.1f, 0.9f) * height, Roll(-0.45f, 0.45f) * width);
-                _particles.Add(new SoftParticle
-                {
-                    Sprite = SoftSprite.Dot, Born = Roll(0.05f, flash), Life = Roll(0.7f, 1f),
-                    From = foot + inside, Drift = new Vector3(Roll(-0.08f, 0.08f), 0f, Roll(-0.08f, 0.08f)) * tile,
-                    Rise = Roll(0.35f, 0.6f) * tile, SizeFrom = Roll(0.16f, 0.24f) * tile, SizeTo = 0.07f * tile,
-                    Color = i % 3 == 0 ? Gold : PaleGold, Alpha = 0.9f, FadeIn = 0.15f, FadeFrom = 0.45f,
-                });
-            }
-
-            // Where the last of it goes: a soft flash opening, and one big glint turning in it.
+            // The flash it goes in.
             _particles.Add(new SoftParticle
             {
-                Sprite = SoftSprite.Dot, Born = flash - 0.08f, Life = 0.6f, From = gone,
-                SizeFrom = width * 0.7f, SizeTo = Mathf.Min(tile * 1.5f, width * 2.6f),
-                Color = Light, Alpha = 0.95f, FadeIn = 0.12f, FadeFrom = 0.35f,
-            });
-            _particles.Add(new SoftParticle
-            {
-                Sprite = SoftSprite.Star, Born = flash - 0.05f, Life = 0.4f, From = gone,
-                SizeFrom = tile * 0.5f, SizeTo = tile * 0.95f, Color = Light, Alpha = 1f, FadeIn = 0.15f, FadeFrom = 0.35f,
-                Turn = 10f, Spin = 35f,
+                Sprite = SoftSprite.Dot, Born = pop - 0.05f, Life = 0.4f, From = heart,
+                SizeFrom = width * 0.8f, SizeTo = Mathf.Min(tile * 1.4f, width * 2.6f),
+                Color = Light, Alpha = 0.95f, FadeIn = 0.12f, FadeFrom = 0.3f,
             });
 
-            // The glints: out and up from the flash, drooping, twinkling, the last ones lingering.
-            for (int i = 0; i < Glints; i++)
+            // The puff that takes it: one cloud where it stood and a wreath of them bursting out, popping and dwindling.
+            for (int i = 0; i < Poofs; i++)
             {
-                Vector3 way = Round(i, Glints, 0.3f);
-                float up = Roll(0.15f, 0.9f);
-                Vector3 out3 = (way * Mathf.Sqrt(1f - up * up * 0.6f) + Vector3.up * up).normalized;
-                float size = Roll(0.34f, 0.56f) * tile;
-                _particles.Add(new SoftParticle
+                bool middle = i == 0;
+                Vector3 way = Round(i, Poofs - 1, 0.3f);
+                float up = Roll(-0.15f, 0.75f);
+                Vector3 off = middle ? Vector3.zero : (way * Mathf.Sqrt(1f - up * up * 0.6f) + Vector3.up * up).normalized;
+                float size = (middle ? Roll(0.5f, 0.56f) : Roll(0.3f, 0.42f)) * tile;
+                Pair(new SoftParticle
                 {
-                    Sprite = SoftSprite.Star, Born = flash + Roll(-0.03f, 0.08f), Life = Roll(0.55f, 0.95f),
-                    From = gone, Drift = out3 * (Roll(0.35f, 0.7f) * tile), Fall = Roll(0.1f, 0.22f) * tile,
-                    SizeFrom = size, SizeTo = size * 0.55f,
-                    Color = i % 3 == 0 ? Light : i % 3 == 1 ? Gold : PaleGold, Alpha = 1f, FadeIn = 0.08f, FadeFrom = 0.55f,
-                    Turn = Roll(-20f, 20f), Spin = Roll(-45f, 45f), Twinkle = 0.45f, Beats = Roll(3f, 5f),
-                });
+                    Sprite = SoftSprite.Cloud, Born = pop - 0.03f + (middle ? 0f : Roll(0f, 0.07f)), Life = middle ? 0.5f : Roll(0.5f, 0.7f),
+                    From = heart + off * (width * 0.2f), Drift = off * (Roll(0.2f, 0.36f) * tile), Rise = 0.06f * tile,
+                    SizeFrom = size * 0.6f, SizeTo = size, Pop = 0.22f, ShrinkFrom = 0.4f,
+                    Color = Puff, Alpha = 1f, FadeFrom = 0.9f, Turn = Roll(-18f, 18f),
+                }, SoftSprite.CloudLight, PuffLight);
             }
+
+            // The dollar signs: up out of the puff one after another, popping in, hanging, drooping a little as they fade.
+            for (int i = 0; i < Dollars; i++)
+            {
+                Vector3 way = Round(i, Dollars, 1.1f);
+                bool green = i % 3 == 2;
+                float size = Roll(0.26f, 0.38f) * tile;
+                Pair(new SoftParticle
+                {
+                    Sprite = SoftSprite.DollarEdge, Born = pop + 0.02f + 0.3f * i / Dollars + Roll(0f, 0.03f), Life = Roll(1f, 1.4f),
+                    From = heart + way * (width * 0.15f),
+                    Drift = way * (Roll(0.12f, 0.46f) * tile) + Vector3.up * (Roll(0.3f, 0.7f) * tile), Fall = Roll(0.06f, 0.16f) * tile,
+                    SizeFrom = size, SizeTo = size, Pop = 0.16f, ShrinkFrom = 0.8f,
+                    Color = green ? MoneyRim : GoldRim, Alpha = 1f, FadeFrom = 0.72f, Turn = Roll(-14f, 14f), Spin = Roll(-20f, 20f),
+                }, SoftSprite.Dollar, green ? Money : Gold);
+            }
+        }
+
+        /// <summary>A cloud of dust and its lit side.</summary>
+        private void Dust(SoftParticle cloud, int tone)
+        {
+            cloud.Sprite = SoftSprite.Cloud;
+            cloud.Color = DustTones[tone % DustTones.Length];
+            cloud.Alpha = 1f;
+            cloud.FadeFrom = 0.9f;
+            cloud.Turn = Roll(-18f, 18f);
+            Pair(cloud, SoftSprite.CloudLight, Lit(cloud.Color));
         }
 
         private void LayDemolition(Vector3 foot, float width, float height, float tile, Color wall)
         {
             float drop = LeavingMotion.DemolishedSeconds * LeavingMotion.Jolt;
 
-            // The jolt shakes wisps out from under the walls.
-            for (int i = 0; i < Wisps; i++)
+            // The jolt kicks small puffs out from under the walls.
+            for (int i = 0; i < Kicks; i++)
             {
-                Vector3 way = Round(i, Wisps, 0.9f);
-                _particles.Add(new SoftParticle
+                Vector3 way = Round(i, Kicks, 0.9f);
+                Dust(new SoftParticle
                 {
-                    Sprite = SoftSprite.Puff, Born = Roll(0f, 0.06f), Life = 0.55f,
-                    From = foot + way * (width * 0.45f), Drift = way * (0.14f * tile), Rise = 0.05f * tile,
-                    SizeFrom = 0.1f * tile, SizeTo = 0.26f * tile, Sit = 0.26f,
-                    Color = DustTones[i % DustTones.Length], Alpha = 0.65f, FadeIn = 0.2f, FadeFrom = 0.4f,
-                    Turn = Roll(0f, 360f), Spin = Roll(-40f, 40f),
-                });
+                    Born = Roll(0f, 0.05f), Life = 0.45f,
+                    From = foot + way * (width * 0.45f), Drift = way * (0.14f * tile), Rise = 0.04f * tile,
+                    SizeFrom = 0.1f * tile, SizeTo = 0.22f * tile, Sit = 0.3f, Pop = 0.3f, ShrinkFrom = 0.4f,
+                }, i);
             }
 
             // As it gives way a ring of dust runs out over the ground.
             _particles.Add(new SoftParticle
             {
-                Sprite = SoftSprite.Ring, Flat = true, Born = drop + 0.04f, Life = 0.6f,
+                Sprite = SoftSprite.Ring, Flat = true, Born = drop + 0.03f, Life = 0.5f,
                 From = foot + Vector3.up * (tile * 0.012f), SizeFrom = width, SizeTo = tile * 1.15f,
-                Color = DustTones[1], Alpha = 0.55f, FadeIn = 0.1f, FadeFrom = 0.3f,
+                Color = DustTones[1], Alpha = 0.7f, FadeIn = 0.1f, FadeFrom = 0.3f,
             });
 
-            // The cloud rolls out from the foot all round and climbs the walls, swelling as it slows: thick enough to
-            // take the building in.
+            // The dust bursts out from the foot all round, each cloud a moment after the one before: out fast, swelling,
+            // then dwindling where it has stopped.
             for (int i = 0; i < Clouds; i++)
             {
                 Vector3 way = Round(i, Clouds, 0.4f);
-                _particles.Add(new SoftParticle
+                Dust(new SoftParticle
                 {
-                    Sprite = SoftSprite.Puff, Born = drop + 0.3f * i / Clouds + Roll(0f, 0.04f), Life = Roll(0.95f, 1.35f),
-                    From = foot + way * (width * 0.4f), Drift = way * (Roll(0.12f, 0.28f) * tile), Rise = Roll(0.14f, 0.34f) * tile,
-                    SizeFrom = 0.28f * tile, SizeTo = Roll(0.44f, 0.56f) * tile, Sit = 0.26f,
-                    Color = DustTones[i % DustTones.Length], Alpha = Roll(0.85f, 0.95f), FadeIn = 0.08f, FadeFrom = 0.4f,
-                    Turn = Roll(0f, 360f), Spin = Roll(-50f, 50f),
-                });
+                    Born = drop + 0.25f * i / Clouds + Roll(0f, 0.03f), Life = Roll(0.8f, 1.15f),
+                    From = foot + way * (width * 0.35f), Drift = way * (Roll(0.18f, 0.34f) * tile), Rise = Roll(0.05f, 0.2f) * tile,
+                    SizeFrom = 0.18f * tile, SizeTo = Roll(0.34f, 0.46f) * tile, Sit = 0.3f, Pop = 0.2f, ShrinkFrom = 0.5f,
+                }, i);
             }
 
-            // And up through the falling walls, to where the roof was.
+            // And up its walls all round as it goes down, so it drops out of sight into dust, not into the open: these
+            // stand clear of the walls (a cloud inside them would be hidden by them) and hang there, swelling.
             for (int i = 0; i < Plumes; i++)
             {
-                Vector3 inside = new Vector3(Roll(-0.3f, 0.3f) * width, Roll(0.2f, 0.8f) * height, Roll(-0.3f, 0.3f) * width);
-                _particles.Add(new SoftParticle
+                Vector3 way = Round(i, Plumes, 0.2f);
+                Dust(new SoftParticle
                 {
-                    Sprite = SoftSprite.Puff, Born = drop + Roll(0.05f, 0.4f), Life = Roll(0.9f, 1.25f),
-                    From = foot + inside, Drift = new Vector3(Roll(-0.1f, 0.1f), 0f, Roll(-0.1f, 0.1f)) * tile,
-                    Rise = Roll(0.2f, 0.38f) * tile,
-                    SizeFrom = 0.3f * tile, SizeTo = Roll(0.44f, 0.54f) * tile,
-                    Color = DustTones[(i + 1) % DustTones.Length], Alpha = Roll(0.8f, 0.9f), FadeIn = 0.12f, FadeFrom = 0.4f,
-                    Turn = Roll(0f, 360f), Spin = Roll(-40f, 40f),
-                });
+                    Born = drop + 0.05f + 0.25f * i / Plumes + Roll(0f, 0.04f), Life = Roll(0.85f, 1.1f),
+                    From = foot + way * (width * PlumeReach) + Vector3.up * (Roll(0.3f, 0.8f) * height),
+                    Drift = way * (Roll(0.04f, 0.12f) * tile), Rise = Roll(-0.1f, 0.06f) * tile,
+                    SizeFrom = 0.22f * tile, SizeTo = Roll(0.42f, 0.54f) * tile, Pop = 0.2f, ShrinkFrom = 0.55f,
+                }, i + 1);
+            }
+
+            // And over the roof, coming down with it, so it is not seen from above either.
+            for (int i = 0; i < Caps; i++)
+            {
+                Dust(new SoftParticle
+                {
+                    Born = drop + 0.2f + 0.12f * i, Life = Roll(0.85f, 0.95f),
+                    From = foot + new Vector3(Roll(-0.1f, 0.1f) * width, 0.9f * height, Roll(-0.1f, 0.1f) * width), Rise = -0.4f * height,
+                    SizeFrom = 0.24f * tile, SizeTo = Roll(0.46f, 0.52f) * tile, Pop = 0.2f, ShrinkFrom = 0.55f,
+                }, i);
             }
 
             // Grit flung out of it, landing as it fades.
@@ -255,22 +302,21 @@ namespace Lazpoly.Presentation.Effects
                 _particles.Add(new SoftParticle
                 {
                     Sprite = SoftSprite.Dot, Born = drop + Roll(0f, 0.3f), Life = Roll(0.5f, 0.8f),
-                    From = foot + Vector3.up * start, Drift = way * (Roll(0.4f, 0.75f) * tile) + Vector3.up * thrown,
+                    From = foot + Vector3.up * start, Drift = way * (Roll(0.4f, 0.7f) * tile) + Vector3.up * thrown,
                     Fall = start + thrown - tile * 0.02f, SizeFrom = 0.09f * tile, SizeTo = 0.05f * tile,
                     Color = GritTone, Alpha = 0.9f, FadeIn = 0.05f, FadeFrom = 0.8f,
                 });
             }
 
-            // What hangs in the air after: a thin haze that lifts and clears.
-            for (int i = 0; i < Haze; i++)
+            // The last of it: a few small clouds lifting off where it stood.
+            for (int i = 0; i < Wisps; i++)
             {
-                _particles.Add(new SoftParticle
+                Dust(new SoftParticle
                 {
-                    Sprite = SoftSprite.Puff, Born = drop + 0.45f + 0.15f * i, Life = 1.3f,
-                    From = foot + new Vector3(Roll(-0.1f, 0.1f), 0.1f, Roll(-0.1f, 0.1f)) * tile, Rise = 0.18f * tile,
-                    SizeFrom = 0.4f * tile, SizeTo = 0.62f * tile, Sit = 0.2f,
-                    Color = DustTones[2], Alpha = 0.22f, FadeIn = 0.3f, FadeFrom = 0.45f, Turn = Roll(0f, 360f), Spin = 25f,
-                });
+                    Born = LeavingMotion.DemolishedSeconds - 0.1f + 0.12f * i, Life = 0.7f,
+                    From = foot + new Vector3(Roll(-0.2f, 0.2f) * width, 0f, Roll(-0.2f, 0.2f) * width), Rise = 0.2f * tile,
+                    SizeFrom = 0.12f * tile, SizeTo = 0.24f * tile, Sit = 0.3f, Pop = 0.25f, ShrinkFrom = 0.45f,
+                }, i + 2);
             }
 
             // The rubble: broken slabs of wall, of its darker courses and of mortar, thrown up and out of the lower storeys.

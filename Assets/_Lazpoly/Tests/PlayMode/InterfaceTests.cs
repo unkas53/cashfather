@@ -571,9 +571,9 @@ namespace Lazpoly.PlayTests
             }
 
             Assert.GreaterOrEqual(town, 0, "The board has no free town.");
-            Time.timeScale = 4f; // Slow enough for the test to see a leaving on its way, whatever the frame takes.
+            Time.timeScale = 2f; // Slow enough for the test to see a leaving on its way, whatever the frame takes.
 
-            // Sold with its town: the house is drawn up off its tile into light, and neither it nor the plot stays.
+            // Sold with its town: the house springs up off its tile into a puff, and neither it nor the plot stays.
             board.SetOwner(town, Color.red);
             board.SetBuildingLevel(town, 2);
             yield return null;
@@ -584,9 +584,9 @@ namespace Lazpoly.PlayTests
             Assert.AreEqual(1, board.LeavingCount, "One building leaves: the plot under it does not.");
             Assert.IsTrue(house.gameObject.activeSelf, "The sold house is gone at once.");
             Assert.IsFalse(board.MarkerShown(town), "The plot shows under a house that is leaving with its town.");
-            LeavingBurst twinkle = board.GetComponentInChildren<LeavingBurst>();
-            Assert.IsNotNull(twinkle, "A sold house leaves without its light.");
-            Assert.AreEqual(Leaving.Sold, twinkle.How);
+            LeavingBurst puff = board.GetComponentInChildren<LeavingBurst>();
+            Assert.IsNotNull(puff, "A sold house leaves without its puff and dollar signs.");
+            Assert.AreEqual(Leaving.Sold, puff.How);
             float highest = 0f;
             started = Time.realtimeSinceStartup;
             while (board.LeavingCount > 0 && Time.realtimeSinceStartup - started < 10f)

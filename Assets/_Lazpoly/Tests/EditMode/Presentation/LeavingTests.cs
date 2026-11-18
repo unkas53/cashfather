@@ -10,50 +10,54 @@ using UnityEngine;
 namespace Lazpoly.Presentation.Tests
 {
     /// <summary>
-    /// The owner's wish (2026-11-17): a fine animation for the buildings on a town when it is sold and when it is torn
-    /// down, and (the same evening) a professional one. Sold, a building swells a touch and is drawn up into a flash of
-    /// light with glints flying; torn down, it is jolted and drops into a rolling cloud of dust, its rubble thrown out.
+    /// The owner's wishes (2026-11-17 and 18): a fine animation for the buildings on a town when it is sold and when it
+    /// is torn down, professional and in keeping with the game, with dollar signs for the gold glints. Sold, a building
+    /// ducks, springs up and is gone in a puff of cloud out of which dollar signs rise; torn down, it is jolted and
+    /// drops into cartoon dust, its rubble thrown out.
     /// </summary>
     public class LeavingTests
     {
         private const int Samples = 200;
 
         [Test]
-        public void ASoldBuildingSwellsThenIsDrawnUpThinAndTallToAPoint()
+        public void ASoldBuildingDucksSpringsUpAndIsGoneInABlink()
         {
             LeavingPose start = LeavingMotion.Sold(0f);
             AssertSame(Vector3.one, start.Scale, "it starts at its own size");
             Assert.AreEqual(0f, start.Lift, 1e-4f);
-            Assert.AreEqual(0f, start.Turn, 1e-4f);
-            Assert.AreEqual(0f, start.Tilt, 1e-4f);
-            Assert.AreEqual(0f, start.Shake, 1e-4f);
-            Assert.AreEqual(0f, start.Sink, 1e-4f);
 
-            LeavingPose swollen = LeavingMotion.Sold(LeavingMotion.Swell);
-            AssertSame(Vector3.one * (1f + LeavingMotion.SwellBy), swollen.Scale, "it swells evenly before it goes");
-            Assert.AreEqual(0f, swollen.Lift, 1e-3f, "it is still on its tile at the top of the swell");
+            LeavingPose ducked = LeavingMotion.Sold(LeavingMotion.Duck);
+            Assert.AreEqual(1f - LeavingMotion.DuckBy, ducked.Scale.y, 1e-3f, "it ducks before it springs");
+            Assert.Greater(ducked.Scale.x, 1f, "what it loses in height it gains in width");
+            Assert.AreEqual(ducked.Scale.x, ducked.Scale.z, 1e-5f);
+            Assert.AreEqual(0f, ducked.Lift, 1e-3f, "it is still on its tile at the bottom of the duck");
 
-            LeavingPose going = LeavingMotion.Sold(0.8f);
-            Assert.Greater(going.Scale.y, going.Scale.x * 1.1f, "it is drawn up taller than it is wide");
-            Assert.Less(going.Scale.x, 1f, "it is not getting thinner");
+            LeavingPose sprung = LeavingMotion.Sold(LeavingMotion.PopAt - 1e-3f);
+            Assert.AreEqual(1f + LeavingMotion.Spring, sprung.Scale.y, 1e-2f, "it springs up tall");
+            Assert.Less(sprung.Scale.x, 1f, "and narrow");
+            Assert.AreEqual(LeavingMotion.SpringLift, sprung.Lift, 1e-2f, "off its tile as it pops");
 
             LeavingPose end = LeavingMotion.Sold(1f);
             Assert.AreEqual(1f, end.Lift, 1e-4f);
-            Assert.AreEqual(LeavingMotion.Twist, end.Turn, 1e-2f);
-            Assert.LessOrEqual(end.Scale.y, LeavingMotion.Least + 1e-4f, "it is gone at the top");
-            Assert.LessOrEqual(end.Scale.x, LeavingMotion.Least + 1e-4f, "it is gone at the top");
+            Assert.LessOrEqual(end.Scale.y, LeavingMotion.Least * (1f + LeavingMotion.Spring) + 1e-4f, "it is gone at the end");
+            Assert.LessOrEqual(end.Scale.x, LeavingMotion.Least + 1e-4f, "it is gone at the end");
             AssertSame(end.Scale, LeavingMotion.Sold(2f).Scale, "past its time it stays as it ended");
+            Assert.Less(LeavingMotion.Sold(LeavingMotion.PopAt + (1f - LeavingMotion.PopAt) * 0.5f).Scale.y, 0.2f, "most of it is gone half way through the pop");
 
             LeavingPose before = start;
             for (int i = 1; i <= Samples; i++)
             {
-                LeavingPose pose = LeavingMotion.Sold(i / (float)Samples);
+                float t = i / (float)Samples;
+                LeavingPose pose = LeavingMotion.Sold(t);
                 Assert.GreaterOrEqual(pose.Lift, before.Lift - 1e-5f, $"it never comes back down (sample {i})");
                 Assert.AreEqual(0f, pose.Sink, 1e-6f, "a sold building does not go into the ground");
-                Assert.GreaterOrEqual(pose.Turn, before.Turn - 1e-3f, $"it never turns back (sample {i})");
-                Assert.Less(Mathf.Abs(pose.Lift - before.Lift), 0.03f, $"it jumps at sample {i}");
-                Assert.Less((pose.Scale - before.Scale).magnitude, 0.08f, $"its size jumps at sample {i}");
-                Assert.GreaterOrEqual(pose.Scale.x, LeavingMotion.Least - 1e-5f, "its size never turns to nothing while it is shown");
+                Assert.AreEqual(0f, pose.Turn, 1e-6f, "it does not spin");
+                Assert.AreEqual(0f, pose.Tilt, 1e-6f, "it does not lean");
+                Assert.AreEqual(0f, pose.Shake, 1e-6f, "it does not shake");
+                Assert.Less(Mathf.Abs(pose.Lift - before.Lift), 0.04f, $"it jumps at sample {i}");
+                if (t < LeavingMotion.PopAt) Assert.Less((pose.Scale - before.Scale).magnitude, 0.05f, $"its size jumps at sample {i}");
+                else Assert.LessOrEqual(pose.Scale.y, before.Scale.y + 1e-5f, $"it grows back as it pops (sample {i})");
+                Assert.GreaterOrEqual(pose.Scale.x, LeavingMotion.Least * 0.9f, "its size never turns to nothing while it is shown");
                 Assert.GreaterOrEqual(pose.Scale.y, LeavingMotion.Least - 1e-5f, "its size never turns to nothing while it is shown");
                 before = pose;
             }
@@ -121,8 +125,8 @@ namespace Lazpoly.Presentation.Tests
                 AssertSame(LeavingMotion.At(how, 0.5f).Scale, (how == Leaving.Sold ? LeavingMotion.Sold(0.5f) : LeavingMotion.Demolished(0.5f)).Scale, $"{how}");
             }
 
-            Assert.That(LeavingMotion.FlashAt, Is.InRange(LeavingMotion.Swell, 1f), "the flash opens while the last of the building goes");
-            Assert.That(LeavingMotion.UncoverAt, Is.InRange(LeavingMotion.FlashAt, 1f), "what stays behind shows behind the flash");
+            Assert.That(LeavingMotion.PopAt, Is.InRange(LeavingMotion.Duck, 1f), "it pops after its duck");
+            Assert.That(LeavingMotion.UncoverAt, Is.InRange(LeavingMotion.PopAt, 1f), "what stays behind shows inside the puff");
         }
 
         [Test]
@@ -186,7 +190,7 @@ namespace Lazpoly.Presentation.Tests
         }
 
         [Test]
-        public void TheSoftShapesAreClearAtTheirEdgesAndSolidWhereTheyShouldBe()
+        public void TheShapesAreClearAtTheirEdgesAndSolidWhereTheyShouldBe()
         {
             foreach (SoftSprite sprite in Enum.GetValues(typeof(SoftSprite)))
             {
@@ -199,41 +203,73 @@ namespace Lazpoly.Presentation.Tests
                 }
             }
 
-            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Puff, 0f, 0f), 1e-4f, "a cloud is solid at its heart");
+            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Cloud, 0f, 0f), 1e-4f, "a cloud is solid at its heart");
             Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Dot, 0f, 0f), 1e-4f, "a glow is brightest in the middle");
-            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Star, 0f, 0f), 1e-4f, "a glint has a bright heart");
             Assert.Less(SoftSprites.Alpha(SoftSprite.Ring, 0f, 0f), 0.01f, "a ring is open in the middle");
             Assert.Greater(SoftSprites.Alpha(SoftSprite.Ring, 0.78f, 0f), 0.95f, "a ring is solid on its line");
-            Assert.Greater(SoftSprites.Alpha(SoftSprite.Star, 0.5f, 0f), 0.5f, "a glint has rays along its cross");
-            Assert.Greater(SoftSprites.Alpha(SoftSprite.Star, 0f, -0.5f), 0.5f, "a glint has rays along its cross");
-            Assert.Less(SoftSprites.Alpha(SoftSprite.Star, 0.5f, 0.3f), 0.01f, "a glint is clear between its rays");
             Assert.Greater(SoftSprites.Alpha(SoftSprite.Dot, 0.3f, 0f), SoftSprites.Alpha(SoftSprite.Dot, 0.6f, 0f), "a glow thins outwards");
 
-            // A cloud's outline is lumpy: further out along a lobe than between two.
-            float lobe = 0.7f, between = 0.7f + Mathf.PI / 5f;
-            Assert.Greater(SoftSprites.Alpha(SoftSprite.Puff, Mathf.Cos(lobe) * 0.62f, Mathf.Sin(lobe) * 0.62f),
-                SoftSprites.Alpha(SoftSprite.Puff, Mathf.Cos(between) * 0.62f, Mathf.Sin(between) * 0.62f) + 0.1f, "a cloud is a plain round ball");
+            // A cloud's outline is lumpy (further out along a lobe than between two) and clean: solid or clear, with
+            // hardly anything between.
+            float lobe = 0.5f, between = 0.5f + Mathf.PI / 6f;
+            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Cloud, Mathf.Cos(lobe) * 0.72f, Mathf.Sin(lobe) * 0.72f), 1e-4f, "a cloud has no lobes");
+            Assert.AreEqual(0f, SoftSprites.Alpha(SoftSprite.Cloud, Mathf.Cos(between) * 0.72f, Mathf.Sin(between) * 0.72f), 1e-4f, "a cloud is a plain round ball");
+            int solid = 0, soft = 0, lit = 0;
+            for (int i = 0; i < 64; i++)
+            {
+                for (int j = 0; j < 64; j++)
+                {
+                    float x = (i + 0.5f) / 32f - 1f, y = (j + 0.5f) / 32f - 1f;
+                    float cloud = SoftSprites.Alpha(SoftSprite.Cloud, x, y);
+                    if (cloud > 0.99f) solid++;
+                    else if (cloud > 0.01f) soft++;
+                    Assert.GreaterOrEqual(SoftSprites.Alpha(SoftSprite.DollarEdge, x, y), SoftSprites.Alpha(SoftSprite.Dollar, x, y) - 1e-5f, "a sign shows outside its rim");
+                    if (SoftSprites.Alpha(SoftSprite.CloudLight, x, y) < 0.5f) continue;
+                    lit++;
+                    Assert.Greater(cloud, 0.5f, "a cloud's lit side reaches past the cloud");
+                }
+            }
 
-            // Each shape has its own quarter of one sheet.
+            Assert.Less(soft, solid / 4, "a cloud's edge is blurred");
+            Assert.That(lit, Is.InRange(solid * 0.4f, solid * 0.7f), "a cloud's lit side is a good half of it");
+
+            // The dollar sign: a bar through an S of two bows, the upper open to the right, the lower to the left.
+            float bow = SoftSprites.Bow;
+            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Dollar, 0f, 0f), 1e-4f, "the bar runs through the middle");
+            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Dollar, 0f, SoftSprites.BarReach - 0.05f), 1e-4f, "the bar stands out above the S");
+            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Dollar, 0f, 0.05f - SoftSprites.BarReach), 1e-4f, "and below it");
+            Assert.AreEqual(0f, SoftSprites.Alpha(SoftSprite.Dollar, 0f, 0.92f), 1e-4f, "the bar ends");
+            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Dollar, -bow, bow), 1e-4f, "the upper bow comes down the left");
+            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.Dollar, bow, -bow), 1e-4f, "the lower bow comes up the right");
+            float gapX = bow * Mathf.Cos(20f * Mathf.Deg2Rad), gapY = bow - bow * Mathf.Sin(20f * Mathf.Deg2Rad);
+            Assert.AreEqual(0f, SoftSprites.Alpha(SoftSprite.Dollar, gapX, gapY), 1e-4f, "the upper bow is closed on the right: an 8, not an S");
+            Assert.AreEqual(0f, SoftSprites.Alpha(SoftSprite.Dollar, -gapX, -gapY), 1e-4f, "the lower bow is closed on the left: an 8, not an S");
+            float outside = bow + SoftSprites.Stroke + SoftSprites.Rim * 0.5f;
+            Assert.AreEqual(0f, SoftSprites.Alpha(SoftSprite.Dollar, -outside, bow), 1e-4f, "the sign is thicker than its stroke");
+            Assert.AreEqual(1f, SoftSprites.Alpha(SoftSprite.DollarEdge, -outside, bow), 1e-4f, "the rim does not stand out round the sign");
+
+            // Each shape has its own cell of one sheet.
             var seen = new System.Collections.Generic.HashSet<Vector2>();
             foreach (SoftSprite sprite in Enum.GetValues(typeof(SoftSprite)))
             {
                 Rect cell = SoftSprites.Uv(sprite);
-                Assert.AreEqual(0.5f, cell.width);
-                Assert.AreEqual(0.5f, cell.height);
-                Assert.That(cell.xMin, Is.InRange(0f, 0.5f));
-                Assert.That(cell.yMin, Is.InRange(0f, 0.5f));
+                Assert.AreEqual(1f / SoftSprites.Columns, cell.width, 1e-6f);
+                Assert.AreEqual(1f / SoftSprites.Rows, cell.height, 1e-6f);
+                Assert.GreaterOrEqual(cell.xMin, 0f);
+                Assert.GreaterOrEqual(cell.yMin, 0f);
+                Assert.LessOrEqual(cell.xMax, 1f + 1e-6f, $"{sprite} is off the sheet");
+                Assert.LessOrEqual(cell.yMax, 1f + 1e-6f, $"{sprite} is off the sheet");
                 Assert.IsTrue(seen.Add(cell.position), $"{sprite} shares its place on the sheet");
             }
 
             Texture2D sheet = SoftSprites.Sheet();
-            Assert.AreEqual(SoftSprites.Cell * 2, sheet.width);
-            Assert.AreEqual(SoftSprites.Cell * 2, sheet.height);
+            Assert.AreEqual(SoftSprites.Cell * SoftSprites.Columns, sheet.width);
+            Assert.AreEqual(SoftSprites.Cell * SoftSprites.Rows, sheet.height);
             Assert.AreSame(sheet, SoftSprites.Sheet(), "the sheet is drawn once");
         }
 
         [Test]
-        public void ASoftPieceComesInMovesSlowsAndGoesOutByPlainArithmetic()
+        public void APieceComesInMovesSlowsPopsAndGoesOutByPlainArithmetic()
         {
             var piece = new SoftParticle
             {
@@ -263,10 +299,16 @@ namespace Lazpoly.Presentation.Tests
 
             piece.Sit = 0.5f;
             Assert.AreEqual(2.5f, piece.Position(0f).y, 1e-5f, "a cloud is held up by a share of its size");
-            piece.Twinkle = 0.5f;
-            piece.Beats = 1f;
-            Assert.AreEqual(0.5f * Mathf.Lerp(1f, 3f, Ease.OutCubic(0.5f)), piece.Size(0.5f), 1e-4f, "a twinkle dips its size");
-            Assert.AreEqual(3f, piece.Size(1f), 1e-4f, "and gives it back");
+
+            // A cartoon piece pops in, a little past its size and back, and dwindles to nothing at the end.
+            var cloud = new SoftParticle { Life = 1f, SizeFrom = 2f, SizeTo = 2f, Pop = 0.2f, ShrinkFrom = 0.6f, Alpha = 1f, FadeFrom = 1f };
+            Assert.AreEqual(0f, cloud.Size(0f), 1e-5f, "it starts from nothing");
+            Assert.Greater(cloud.Size(0.14f), 2f, "it pops a little past its size");
+            Assert.AreEqual(2f, cloud.Size(0.2f), 1e-4f, "and comes back to it");
+            Assert.AreEqual(2f, cloud.Size(0.6f), 1e-4f, "it holds its size");
+            Assert.AreEqual(2f * (1f - Ease.InCubic(0.5f)), cloud.Size(0.8f), 1e-4f, "then dwindles, slowly at first");
+            Assert.AreEqual(0f, cloud.Size(1f), 1e-5f, "to nothing");
+            Assert.AreEqual(1f, cloud.Opacity(0.5f), 1e-5f, "solid all the while");
         }
 
         [Test]
@@ -292,7 +334,7 @@ namespace Lazpoly.Presentation.Tests
         }
 
         [Test]
-        public void ASaleLaysRingsMotesAFlashAndGlintsAndClearsItselfAway()
+        public void ASaleLaysRingsAFlashAPuffAndDollarSignsAndClearsItselfAway()
         {
             var holder = new GameObject("Burst Test");
             try
@@ -303,20 +345,16 @@ namespace Lazpoly.Presentation.Tests
                 Assert.AreEqual(Leaving.Sold, burst.How);
                 Assert.AreEqual(LeavingBurst.SoldParticles, burst.Particles.Count);
                 Assert.AreEqual(0, burst.RubbleCount, "a sold building leaves rubble");
-                Assert.That(burst.Seconds, Is.InRange(LeavingMotion.SoldSeconds, 2.2f), "the light outlasts the building, but not by long");
-                Assert.Greater(burst.Showing(0f), 0, "nothing shows as the building starts to go");
+                Assert.That(burst.Seconds, Is.InRange(LeavingMotion.SoldSeconds + 0.8f, 2.3f), "the signs outlast the building, but not by long");
 
-                float flash = LeavingMotion.SoldSeconds * LeavingMotion.FlashAt;
-                int glints = 0;
-                foreach (SoftParticle particle in burst.Particles)
+                float pop = LeavingMotion.SoldSeconds * LeavingMotion.PopAt;
+                Assert.AreEqual(0, burst.Showing(pop - 0.1f), "something is in the air before the building pops");
+                Assert.Greater(burst.Showing(pop + 0.1f), 2 * LeavingBurst.Poofs, "the puff is not there as it pops");
+
+                int signs = 0, green = 0, clouds = 0, rings = 0;
+                for (int index = 0; index < burst.Particles.Count; index++)
                 {
-                    if (particle.Sprite == SoftSprite.Star)
-                    {
-                        glints++;
-                        Assert.GreaterOrEqual(particle.Born, flash - 0.1f, "a glint flies before the flash");
-                        Assert.Greater(particle.From.y, foot.y + lift, "a glint does not start where the building vanishes");
-                    }
-
+                    SoftParticle particle = burst.Particles[index];
                     Assert.Greater(particle.Life, 0f);
                     for (int i = 0; i <= 20; i++)
                     {
@@ -324,9 +362,56 @@ namespace Lazpoly.Presentation.Tests
                         Assert.GreaterOrEqual(at.y, foot.y - 1e-4f, $"a {particle.Sprite} goes under the ground");
                         Assert.Less(new Vector2(at.x - foot.x, at.z - foot.z).magnitude, tile, $"a {particle.Sprite} flies a tile away");
                     }
+
+                    if (particle.Sprite == SoftSprite.Ring)
+                    {
+                        rings++;
+                        Assert.IsTrue(particle.Flat, "a ring stands up");
+                        Assert.LessOrEqual(particle.SizeTo, tile * 1.15f + 1e-4f, "a ring spreads far past its tile");
+                    }
+
+                    if (particle.Sprite == SoftSprite.Cloud || particle.Sprite == SoftSprite.DollarEdge)
+                    {
+                        // A shape of two tones: its other tone is the next piece, the same in all but shape and colour.
+                        SoftParticle top = burst.Particles[index + 1];
+                        Assert.AreEqual(particle.Sprite == SoftSprite.Cloud ? SoftSprite.CloudLight : SoftSprite.Dollar, top.Sprite);
+                        AssertSame(particle.From, top.From, "the two tones part");
+                        AssertSame(particle.Drift, top.Drift, "the two tones part");
+                        Assert.AreEqual(particle.Born, top.Born);
+                        Assert.AreEqual(particle.Life, top.Life);
+                        Assert.AreEqual(particle.SizeTo, top.SizeTo);
+                        Assert.AreEqual(particle.Turn, top.Turn);
+                        Assert.AreEqual(particle.Spin, top.Spin);
+                        Assert.AreNotEqual(Luma(particle.Color), Luma(top.Color), "the two tones are one");
+                    }
+
+                    if (particle.Sprite == SoftSprite.Cloud)
+                    {
+                        clouds++;
+                        Assert.Greater(particle.Pop, 0f, "a cloud fades in instead of popping");
+                        Assert.Greater(particle.ShrinkFrom, 0f, "a cloud fades out instead of dwindling");
+                    }
+
+                    if (particle.Sprite != SoftSprite.Dollar) continue;
+                    signs++;
+                    SoftParticle rim = burst.Particles[index - 1];
+                    bool money = particle.Color.g > particle.Color.r;
+                    if (money) green++;
+                    Assert.AreEqual(money ? LeavingBurst.Money.g : LeavingBurst.Gold.g, particle.Color.g, "a sign is gold or money green");
+                    Assert.AreEqual(money ? LeavingBurst.MoneyRim.g : LeavingBurst.GoldRim.g, rim.Color.g, "a sign's rim is the dark of its own colour");
+                    Assert.Less(Luma(rim.Color), Luma(particle.Color) * 0.5f, "a sign's rim is too pale to read it by");
+                    Assert.GreaterOrEqual(particle.Born, pop, "a sign flies before the building pops");
+                    Assert.Greater(particle.From.y, foot.y + lift * LeavingMotion.SpringLift, "a sign does not start where the building vanishes");
+                    Assert.Greater(particle.Position(1f).y, particle.From.y + 0.1f * tile, "a sign does not rise");
+                    Assert.That(particle.SizeTo, Is.InRange(0.24f * tile, 0.4f * tile), "a sign is big enough to read and smaller than the building");
+                    Assert.Less(Mathf.Abs(particle.Turn) + Mathf.Abs(particle.Spin), 40f, "a sign tumbles: it should stay upright enough to read");
+                    Assert.AreEqual(1f, particle.Opacity(0.5f), 1e-5f, "a sign is solid while it hangs");
                 }
 
-                Assert.AreEqual(LeavingBurst.Glints + 1, glints);
+                Assert.AreEqual(2, rings);
+                Assert.AreEqual(LeavingBurst.Poofs, clouds);
+                Assert.AreEqual(LeavingBurst.Dollars, signs, "the dollar signs the owner asked for");
+                Assert.That(green, Is.InRange(2, LeavingBurst.Dollars / 2), "mostly gold, some money green");
 
                 // The same building leaves the same way; another scatters otherwise.
                 LeavingBurst again = LeavingBurst.Play(holder.transform, Leaving.Sold, foot, width, height, tile, lift, Color.red, 7);
@@ -359,7 +444,7 @@ namespace Lazpoly.Presentation.Tests
         }
 
         [Test]
-        public void ADemolitionRollsDustOutAndThrowsRubbleThatLandsOnTheTable()
+        public void ADemolitionBurstsDustOutAndThrowsRubbleThatLandsOnTheTable()
         {
             var holder = new GameObject("Burst Test");
             try
@@ -377,14 +462,30 @@ namespace Lazpoly.Presentation.Tests
                 int clouds = 0;
                 foreach (SoftParticle particle in burst.Particles)
                 {
-                    if (particle.Sprite == SoftSprite.Puff && particle.Born >= drop) clouds++;
+                    if (particle.Sprite == SoftSprite.Cloud && particle.Born >= drop) clouds++;
+                    if (particle.Sprite == SoftSprite.Cloud) Assert.Less(Luma(particle.Color), Luma(LeavingBurst.Puff), "dust is as white as a sale's puff");
                     for (int i = 0; i <= 20; i++)
                     {
                         Assert.GreaterOrEqual(particle.Position(i / 20f).y, foot.y - 1e-4f, $"a {particle.Sprite} goes under the ground");
                     }
                 }
 
-                Assert.AreEqual(LeavingBurst.Clouds + LeavingBurst.Plumes + LeavingBurst.Haze, clouds);
+                Assert.AreEqual(LeavingBurst.Clouds + LeavingBurst.Plumes + LeavingBurst.Caps + LeavingBurst.Wisps, clouds);
+
+                // The dust up the walls stands clear of them (inside them it would be hidden) and no higher than the roof.
+                int plumes = 2 * LeavingBurst.Kicks + 1 + 2 * LeavingBurst.Clouds;
+                for (int i = 0; i < LeavingBurst.Plumes; i++)
+                {
+                    SoftParticle plume = burst.Particles[plumes + 2 * i];
+                    Assert.AreEqual(SoftSprite.Cloud, plume.Sprite);
+                    float out0 = new Vector2(plume.From.x - foot.x, plume.From.z - foot.z).magnitude;
+                    Assert.Greater(out0, width * 0.71f, $"plume {i} starts inside the walls");
+                    Assert.That(plume.From.y - foot.y, Is.InRange(height * 0.3f, height * 0.8f), $"plume {i}");
+                }
+
+                Color32 lit = LeavingBurst.Lit(LeavingBurst.DustTones[0]);
+                Assert.Greater(Luma(lit), Luma(LeavingBurst.DustTones[0]), "a cloud's lit side is darker than the cloud");
+                Assert.Less(Luma(lit), Luma(LeavingBurst.DustLight));
                 Assert.Greater(burst.Showing(drop + 0.6f), burst.Showing(0.1f), "the cloud does not grow as the building drops");
 
                 // Thrown: in the air soon after the walls give way.
@@ -461,6 +562,8 @@ namespace Lazpoly.Presentation.Tests
                 UnityEngine.Object.DestroyImmediate(holder);
             }
         }
+
+        private static float Luma(Color32 colour) => 0.3f * colour.r + 0.59f * colour.g + 0.11f * colour.b;
 
         private static void AssertSame(Vector3 expected, Vector3 actual, string what)
         {

@@ -1027,7 +1027,7 @@ namespace Lazpoly.Presentation.Tabletop
         /// With <paramref name="animate"/>, a new, taller building drops onto the tile and bounces while the old one
         /// shrinks away, and the plot folds down when the first building takes its place. A building that comes down
         /// leaves in its own way (<paramref name="leaving"/>, the owner's wish, 2026-11-17): sold, it springs up and is
-        /// gone in a twinkle; torn down by a card, it falls in on itself in dust. What stays behind (a lower house, the
+        /// gone in a puff and dollar signs; torn down by a card, it falls in on itself in dust. What stays behind (a lower house, the
         /// plot) shows again as it goes.
         /// </summary>
         public void SetBuildingLevel(int squareIndex, int level, bool animate = false, Leaving leaving = Leaving.Sold)

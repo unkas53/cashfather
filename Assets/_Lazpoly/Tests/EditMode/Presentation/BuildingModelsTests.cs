@@ -167,32 +167,47 @@ namespace Lazpoly.Presentation.Tests
                     }
                 }
 
-                // The owner's wish (2026-11-21): the roof in the player's colour, the walls white, the windows black.
+                // The owner's wishes (2026-11-21): the roof and the belts between the floors in the player's colour, the
+                // walls white, the frames of the windows black (not their glass), the ground under the house concrete.
                 Color walls = BuildingModels.SlotColors[BuildingModels.WallSlot];
                 Color glass = BuildingModels.SlotColors[BuildingModels.GlassSlot];
+                Color frames = BuildingModels.SlotColors[BuildingModels.FrameSlot];
+                Color ground = BuildingModels.SlotColors[BuildingModels.BaseSlot];
                 Assert.Greater(Mathf.Min(walls.r, walls.g, walls.b), 0.88f, "the walls are white");
                 Assert.Less(walls.maxColorComponent - Mathf.Min(walls.r, walls.g, walls.b), 0.04f, "the walls have no tint");
-                Assert.Less(glass.maxColorComponent, 0.1f, "the glass is black");
+                Assert.Less(frames.maxColorComponent, 0.1f, "the window frames are black");
+                Assert.Greater(glass.maxColorComponent, 0.6f, "the glass is light behind its black frame");
+                Assert.Less(ground.maxColorComponent - Mathf.Min(ground.r, ground.g, ground.b), 0.04f, "concrete is grey, with no tint");
+                Assert.That(ground.maxColorComponent, Is.InRange(0.5f, 0.75f), "concrete is a middle grey, darker than the walls");
                 Assert.AreEqual("Glass", BuildingModels.Slots[BuildingModels.GlassSlot]);
                 Assert.AreEqual("Roof", BuildingModels.Slots[BuildingModels.RoofSlot]);
+                Assert.AreEqual("Base", BuildingModels.Slots[BuildingModels.BaseSlot]);
+                Assert.AreEqual("Frame", BuildingModels.Slots[BuildingModels.FrameSlot]);
+                Assert.AreEqual("Belt", BuildingModels.Slots[BuildingModels.BeltSlot]);
                 Assert.AreEqual(walls, BuildingModels.WallColor);
 
                 var owner = new Color(0.9f, 0.2f, 0.2f);
                 Assert.AreEqual(owner, BuildingModels.RoofColor(owner), "the roof is the player's colour as it is");
                 Assert.AreEqual(BuildingModels.SlotColors[BuildingModels.RoofSlot], BuildingModels.RoofColor(null), "nobody's roof is terracotta");
+                Assert.AreEqual(owner, BuildingModels.BeltColor(owner), "the belts are the player's colour as it is");
+                Assert.AreEqual(BuildingModels.SlotColors[BuildingModels.BeltSlot], BuildingModels.BeltColor(null), "nobody's belts are cream");
 
-                // Every house and the hotel has a roof to wear it (the flat-roofed ones their slabs) and windows; owned,
-                // only the roof changes.
+                // Every house and the hotel has a roof to wear it (the flat-roofed ones their slabs), windows in frames
+                // and ground to stand on; all but the one-storey house have belts between their floors. Owned, only the
+                // roof and the belts change.
                 for (int level = 1; level <= SquareDefinition.MaxBuildingLevel; level++)
                 {
                     GameObject house = BuildingModels.Create(level, $"Owned {level}", root.transform);
                     Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.RoofSlot]), $"level {level} has a roof");
                     Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.GlassSlot]), $"level {level} has windows");
+                    Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.FrameSlot]), $"level {level}'s windows have frames");
+                    Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.BaseSlot]), $"level {level} stands on its ground");
+                    Assert.AreEqual(level > 1, house.transform.Find(BuildingModels.Slots[BuildingModels.BeltSlot]) != null, $"level {level}: belts between floors");
                     BuildingModels.PaintOwner(house, owner);
                     foreach (Transform part in house.transform)
                     {
                         int slot = Array.IndexOf(BuildingModels.Slots, part.name);
-                        Color expected = slot == BuildingModels.RoofSlot ? owner : BuildingModels.SlotColors[slot];
+                        Color expected = slot == BuildingModels.RoofSlot || slot == BuildingModels.BeltSlot ? owner : BuildingModels.SlotColors[slot];
                         Assert.That(Vector4.Distance(expected, part.GetComponent<Renderer>().sharedMaterial.color), Is.LessThan(1e-4f), $"level {level} {part.name}");
                     }
 

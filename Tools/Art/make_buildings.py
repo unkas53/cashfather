@@ -4,8 +4,9 @@
 The Blender file holds six models, each an empty (Plot_00, House_01..House_04, Hotel_05) with its parts as named
 child meshes: bodies, window and door openings (jambs, lintels, sills, mullions...), door panels, roofs, balconies,
 the foundation and kerbs, the plot's sale sign. They share one white material. The game paints them:
-the roofs in the owner's colour (the owner's wish, 2026-11-21), the walls white, the glass black and the rest in
-fixed colours, so this script sorts every part into a slot
+the roofs and the belts between the floors in the owner's colour (the owner's wishes, 2026-11-21), the walls white,
+the frames of the windows black, the ground concrete and the rest in fixed colours, so this script sorts every part
+into a slot
 (SLOT_RULES) and writes one mesh per slot. The window panes are no parts of their own: they are the faces of a
 body inside a window opening (the back of the recess and its reveals), picked out as GLASS. The plot's sale sign is made SIGN_SCALE times larger
 so it reads from the game's camera.
@@ -46,13 +47,16 @@ SLOT_RULES = [
     (r"Penthouse_Window", "Glass"),
     # The slabs that close a flat-roofed building at the top are its roof (the apartment house has no other).
     (r"Apartment_Cornice|Hotel_WingCornice", "Roof"),
-    (r"_Opening_\d+_(Jamb|Lintel|Sill|Mullion|Transom|Horizontal|Vertical)|Balcony_(Rail|Post|Baluster)|Stringcourse|"
-     r"Cornice|TowerBelt|Parapet|EntryColumn|SaleSign_Board", "Trim"),
+    # The frames of the windows and doors, and the belts between the floors, are painted on their own (the owner's
+    # wish, 2026-11-21: black frames, belts in the player's colour).
+    (r"_Opening_\d+_(Jamb|Lintel|Sill|Mullion|Transom|Horizontal|Vertical)", "Frame"),
+    (r"Stringcourse|TowerBelt", "Belt"),
+    (r"Balcony_(Rail|Post|Baluster)|Cornice|Parapet|EntryColumn|SaleSign_Board", "Trim"),
     (r"Roof|Ridge|Chimney|Canopy|PorteCochere|Hotel_Crown", "Roof"),
     (r"Foundation|Curb|Step|Balcony_Slab", "Base"),
     (r"Body|CentralTower|Hotel_Wing|Penthouse|Paving|SaleSign_Inset", "Wall"),
 ]
-SLOTS = ["Wall", "Trim", "Glass", "Door", "Roof", "Base", "Metal"]
+SLOTS = ["Wall", "Trim", "Glass", "Door", "Roof", "Base", "Metal", "Frame", "Belt"]
 
 
 def slot_of(name):

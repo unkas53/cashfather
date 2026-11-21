@@ -1129,6 +1129,30 @@ namespace Lazpoly.Presentation.Game
         }
 
         /// <summary>
+        /// Shows the buildings in every player's colour (the owner's wishes, 2026-11-21: the roof and the belts between
+        /// the floors in the player's colour, white walls, black window frames, concrete ground), on five towns nobody
+        /// owns: a house of each height and a hotel, each the next player's ("bina-renkleri").
+        /// </summary>
+        private IEnumerator TourColours()
+        {
+            List<int> towns = TourTowns(SquareDefinition.MaxBuildingLevel);
+            IReadOnlyList<PlayerState> players = _session.State.Players;
+            if (towns.Count == 0 || players.Count == 0) yield break;
+            for (int i = 0; i < towns.Count; i++)
+            {
+                _board.SetOwner(towns[i], ColorOf(players[i % players.Count].Id));
+                _board.SetBuildingLevel(towns[i], i + 1);
+            }
+
+            yield return TourHold("bina-renkleri", 0.2f);
+            foreach (int town in towns)
+            {
+                _board.SetBuildingLevel(town, 0);
+                _board.ClearOwner(town, animate: false);
+            }
+        }
+
+        /// <summary>
         /// Shows a bankrupt player's towns leaving one after another (the owner's wish, 2026-11-18), on four towns
         /// nobody owns: the picture ("iflas-dalga") is taken just after the last has started to go, so the first is
         /// gone into its dollar signs, the next two are on their way and the last still stands.
@@ -1448,6 +1472,7 @@ namespace Lazpoly.Presentation.Game
             // A building going up, and a bankrupt player's towns leaving in a wave (the owner's wishes, 2026-11-18).
             yield return TourRising();
             yield return TourWave();
+            yield return TourColours();
 
             // The other cards in the middle, one of each (the owner's wish, 2026-11-09): a drawn money card and a drawn
             // strategy card, a trade's result and a player who cannot pay.

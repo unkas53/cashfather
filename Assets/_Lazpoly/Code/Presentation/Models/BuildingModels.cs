@@ -11,10 +11,11 @@ namespace Lazpoly.Presentation.Models
     /// model's parts into <see cref="Slots"/> (walls, rails, glass, doors, roofs, the base, handles, window and
     /// door frames, the belts between the floors) and packs every slot whole and as a light copy (about 30% of the triangles). The whole models
     /// stand at the High graphics quality and the light ones at Medium and Low (<see cref="SetFullDetail"/>,
-    /// switched in place). Each stands on a <see cref="Width"/> x <see cref="Depth"/> footprint with its pivot
-    /// in the middle of the ground and its front towards +Z. A building is one part per slot: the roof and the
-    /// belts between the floors take the owner's colour, the walls are white, the frames of the windows black and
-    /// the ground it stands on concrete (the owner's wishes, 2026-11-21; <see cref="PaintOwner"/>), and the rest
+    /// switched in place). The plot is a white slab of <see cref="Width"/> x <see cref="Depth"/>; a house takes its
+    /// place and stands on the tile itself, inside that footprint, with no slab under it (the owner's wish,
+    /// 2026-11-21). Each has its pivot in the middle of the plot's ground and its front towards +Z. A building is
+    /// one part per slot: the roof and the belts between the floors take the owner's colour, the walls are white
+    /// and the frames of the windows black (the owner's wishes, 2026-11-21; <see cref="PaintOwner"/>), and the rest
     /// keep fixed colours. The plot has no roof: its paving and its sign's face wear the owner's colour.
     /// When the pack is missing the callers fall back to the drawn pieces of <see cref="BuildingParts"/>.
     /// </summary>
@@ -36,8 +37,8 @@ namespace Lazpoly.Presentation.Models
 
         /// <summary>
         /// The walls, white on every building; the slots painted in the owner's colour: the roof (a model without
-        /// one, the plot, wears it on its walls) and the belts between the floors; the ground a building stands on;
-        /// and the frames of its windows and doors.
+        /// one, the plot, wears it on its walls) and the belts between the floors; the plot's slab (and a house's
+        /// steps); and the frames of windows and doors.
         /// </summary>
         public const int WallSlot = 0;
         public const int GlassSlot = 2;
@@ -54,7 +55,7 @@ namespace Lazpoly.Presentation.Models
             new Color(0.56f, 0.77f, 0.91f), // Glass (the whole of a window's recess): light blue.
             new Color(0.36f, 0.23f, 0.16f), // Doors and the sign's posts: dark wood.
             new Color(0.71f, 0.32f, 0.23f), // Roofs, chimneys, canopies, the slabs of flat roofs: terracotta until owned.
-            new Color(0.62f, 0.62f, 0.60f), // The ground a building stands on, its kerbs and steps, balcony slabs: concrete.
+            new Color(0.93f, 0.93f, 0.91f), // The plot's slab and kerbs, a house's steps and balcony slabs: white.
             new Color(0.83f, 0.65f, 0.23f), // Handles and the hotel's letters: brass.
             new Color(0.06f, 0.065f, 0.08f), // The frames of windows and doors, and the bars across the panes: black.
             new Color(0.95f, 0.93f, 0.89f), // The belts between the floors: cream until owned.
@@ -66,7 +67,7 @@ namespace Lazpoly.Presentation.Models
         /// <summary>How far towards white the owner's colour is taken on the plot's paving and sign.</summary>
         public const float OwnerLightening = 0.15f;
 
-        /// <summary>The footprint, along the front (x) and from front to back (z), in model units.</summary>
+        /// <summary>The plot's footprint, along the front (x) and from front to back (z), in model units; the houses stand inside it.</summary>
         public const float Width = 0.9f;
         public const float Depth = 0.72f;
 

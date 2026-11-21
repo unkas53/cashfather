@@ -3,9 +3,10 @@
 
 The Blender file holds six models, each an empty (Plot_00, House_01..House_04, Hotel_05) with its parts as named
 child meshes: bodies, window and door openings (jambs, lintels, sills, mullions...), door panels, roofs, balconies,
-the foundation and kerbs, the plot's sale sign. They share one white material. The game paints them:
+the foundation and kerbs, the plot's sale sign. Only the plot keeps its foundation and kerbs: a house stands on
+the tile itself (GROUND). They share one white material. The game paints them:
 the roofs and the belts between the floors in the owner's colour (the owner's wishes, 2026-11-21), the walls white,
-the frames of the windows black, the ground concrete and the rest in fixed colours, so this script sorts every part
+the frames of the windows black and the rest in fixed colours, so this script sorts every part
 into a slot
 (SLOT_RULES) and writes one mesh per slot. The window panes are no parts of their own: they are the faces of a
 body inside a window opening (the back of the recess and its reveals), picked out as GLASS. The plot's sale sign is made SIGN_SCALE times larger
@@ -39,6 +40,8 @@ AGGRESSION = 3  # fast-simplification's agg: low keeps the shape at the cost of 
 CREASE = 40.0   # degrees
 SMALL = 150     # slots with fewer triangles are not thinned
 SIGN_SCALE = 1.7
+PLOT = "Plot_00"
+GROUND = r"Foundation|Curb"  # the plot's slab and its kerbs: every model has them, only the plot keeps them
 
 # The first rule whose pattern the part's name matches gives its slot; a part no rule takes stops the script.
 SLOT_RULES = [
@@ -134,6 +137,15 @@ def gather(bpy, model):
     origin = np.array(root.matrix_world.to_translation())
     parts = [o for o in root.children_recursive if o.type == "MESH"]
     loaded = {o.name: part_triangles(o, origin) for o in parts}
+
+    if model != PLOT:
+        # A house takes the plot's place (the owner's wish, 2026-11-21): it has no slab of its own under it, and
+        # stands on the tile where the slab's top was (its door's frame goes a hair into the ground, as it did into
+        # the slab).
+        floor = max(bounds(part[0])[1][2] for n, part in loaded.items() if "Foundation" in n)
+        loaded = {n: part for n, part in loaded.items() if not re.search(GROUND, n)}
+        drop = np.array([0.0, 0.0, floor])
+        loaded = {n: (positions - drop, normals, polys) for n, (positions, normals, polys) in loaded.items()}
 
     sign = [n for n in loaded if n.startswith("SaleSign_")]
     if sign:

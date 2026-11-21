@@ -343,11 +343,24 @@ namespace Lazpoly.Presentation.Game
             }
         }
 
+        /// <summary>The box a tile's picture is drawn in: <see cref="PictureWidth"/> by <see cref="PictureHeight"/> in the middle of <paramref name="row"/>, whatever the row's width.</summary>
+        public static RectTransform PictureBox(RectTransform row)
+        {
+            RectTransform box = UiRoot.Rect(row, "Frame", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
+            Centre(box);
+            box.pivot = new Vector2(0.5f, 0.5f);
+            box.sizeDelta = new Vector2(PictureWidth, PictureHeight);
+            return box;
+        }
+
         /// <summary>A tile's picture with its check when the choice includes it; greyed and faded when the level is not open yet.</summary>
         private static void Small(UiBuilder tile, Texture picture, UiIcon stand, bool included, bool locked)
         {
-            RectTransform box = UiRoot.Rect(tile.Container, "Picture", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
-            UiBuilder.Fix(box.gameObject, PictureWidth, PictureHeight);
+            // The tile's column stretches its children to its own width, so the picture sits in a box of its own shape
+            // in the middle of a row: on the hotel card's wide tiles it was pulled to the tile's width (RC 99).
+            RectTransform row = UiRoot.Rect(tile.Container, "Picture", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
+            UiBuilder.Fix(row.gameObject, height: PictureHeight);
+            RectTransform box = PictureBox(row);
             if (picture != null)
             {
                 RawImage image = UiPictures.Show(box, picture, new Vector2(PictureWidth, PictureHeight), PictureRadius, grey: locked ? LockedGrey : 0f);

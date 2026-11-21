@@ -176,6 +176,23 @@ namespace Lazpoly.Presentation.Tests
         }
 
         [Test]
+        public void ATilesPictureKeepsItsShapeInARowOfAnyWidth()
+        {
+            // The hotel card's two tiles are far wider than a level's; the column stretched the picture with them (RC 99).
+            foreach (float width in new[] { PropertyCard.TileWidth, PropertyCard.StepWidth })
+            {
+                RectTransform row = UiRoot.Rect(_container, "Picture", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
+                row.sizeDelta = new Vector2(width, PropertyCard.PictureHeight);
+                RectTransform box = PropertyCard.PictureBox(row);
+                Assert.AreEqual(PropertyCard.PictureWidth, box.rect.width, 1e-3f, $"in a row {width} wide");
+                Assert.AreEqual(PropertyCard.PictureHeight, box.rect.height, 1e-3f);
+                Assert.AreEqual(Vector2.zero, box.anchoredPosition, "in the middle of its row");
+                Assert.AreEqual(box.anchorMin, box.anchorMax, "it does not follow the row's size");
+                Assert.IsNull(box.GetComponent<LayoutElement>(), "the row is what the column lays out");
+            }
+        }
+
+        [Test]
         public void ACardAboutASquareOpensWithTheDarkBandItsNameInCapitalsAndACloseMark()
         {
             int closed = 0;

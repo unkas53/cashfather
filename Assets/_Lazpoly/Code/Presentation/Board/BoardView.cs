@@ -882,7 +882,7 @@ namespace Lazpoly.Presentation.Tabletop
                 Transform marker = flag.transform;
                 Vector3 size = _flagScale[squareIndex];
                 Color? leaver = _ownerColors[squareIndex];
-                StartCoroutine(Leave(marker, marker.localPosition, size, leaving, WallColorOf(squareIndex), () =>
+                StartCoroutine(Leave(marker, marker.localPosition, size, leaving, BuildingModels.PlotColor(_ownerColors[squareIndex]), null, () =>
                 {
                     // A town bought again while its old marker was still leaving keeps its new owner.
                     if (_ownerColors[squareIndex] == leaver) SetOwner(squareIndex, null);
@@ -906,20 +906,18 @@ namespace Lazpoly.Presentation.Tabletop
         /// <summary>Whether a square's owner marker (the plot, or a factory city's factory) stands on it now.</summary>
         public bool MarkerShown(int squareIndex) => _ownerMarkers[squareIndex] != null && _ownerMarkers[squareIndex].gameObject.activeSelf;
 
-        /// <summary>The colour a square's rubble takes: its owner's, lightened as the walls are, or plain plaster.</summary>
-        private Color WallColorOf(int squareIndex) => BuildingModels.WallColor(_ownerColors[squareIndex]);
 
         /// <summary>
         /// Plays a building's (or a marker's) leaving from where it rests: it moves through <see cref="LeavingMotion"/>
         /// while its burst plays round it (<see cref="LeavingBurst"/>, sized to the piece itself), then stands as it was
         /// again, hidden or not as <paramref name="then"/> decides.
         /// </summary>
-        private IEnumerator Leave(Transform piece, Vector3 rest, Vector3 size, Leaving how, Color wall, System.Action then)
+        private IEnumerator Leave(Transform piece, Vector3 rest, Vector3 size, Leaving how, Color wall, Color? roof, System.Action then)
         {
             Quaternion facing = piece.localRotation;
             float seconds = LeavingMotion.Seconds(how);
             Measure(piece, rest, out Vector3 foot, out float across, out float high);
-            LeavingBurst.Play(transform, how, foot, across, high, _width, _width * LeaveLift, wall, piece.GetSiblingIndex() * 31 + Mathf.RoundToInt(rest.x * 97f + rest.z * 13f), HalfExtent);
+            LeavingBurst.Play(transform, how, foot, across, high, _width, _width * LeaveLift, wall, piece.GetSiblingIndex() * 31 + Mathf.RoundToInt(rest.x * 97f + rest.z * 13f), HalfExtent, roof);
             LeavingCount++;
             LeavingStarted?.Invoke(how);
             for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
@@ -1065,7 +1063,7 @@ namespace Lazpoly.Presentation.Tabletop
                 {
                     int index = i;
                     StartCoroutine(down
-                        ? Leave(piece, _buildingRest[squareIndex][i], piece.localScale, leaving, WallColorOf(squareIndex), () => piece.gameObject.SetActive(PieceShown(squareIndex, index)))
+                        ? Leave(piece, _buildingRest[squareIndex][i], piece.localScale, leaving, BuildingModels.WallColor, BuildingModels.RoofColor(_ownerColors[squareIndex]), () => piece.gameObject.SetActive(PieceShown(squareIndex, index)))
                         : Shrink(piece, squareIndex, i));
                     continue;
                 }
@@ -1129,9 +1127,9 @@ namespace Lazpoly.Presentation.Tabletop
         }
 
         /// <summary>
-        /// A building model's walls take the owner's colour, a little lightened, while its doors, frames,
-        /// glass and roof keep their own (<see cref="BuildingModels.PaintOwner"/>); the drawn stand-ins have
-        /// walls in it and roofs a darker shade. Unowned, each keeps its own colours.
+        /// A building's roof takes the owner's colour over white walls (the owner's wish, 2026-11-21), while its
+        /// doors, frames and black glass keep their own (<see cref="BuildingModels.PaintOwner"/>); the drawn
+        /// stand-ins do the same. Unowned, each keeps its own colours.
         /// </summary>
         private void PaintBuildings(int squareIndex)
         {
@@ -1152,7 +1150,7 @@ namespace Lazpoly.Presentation.Tabletop
                 {
                     bool roof = part.name == "Roof" || part.name == "Chimney";
                     Color color = owner.HasValue
-                        ? (roof ? Color.Lerp(owner.Value, Color.black, 0.4f) : owner.Value)
+                        ? (roof ? owner.Value : BuildingParts.Whitewash)
                         : (roof ? BuildingParts.Tile : part.name == "Ground floor" ? BuildingParts.Whitewash : BuildingParts.Timber);
                     ModelParts.Paint(part.gameObject, color, 0.2f);
                 }

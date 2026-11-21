@@ -167,20 +167,53 @@ namespace Lazpoly.Presentation.Tests
                     }
                 }
 
-                // Owned, only the walls change; the door, frames, glass and roof keep their colours.
-                GameObject house = BuildingModels.Create(2, "House", root.transform);
+                // The owner's wish (2026-11-21): the roof in the player's colour, the walls white, the windows black.
+                Color walls = BuildingModels.SlotColors[BuildingModels.WallSlot];
+                Color glass = BuildingModels.SlotColors[BuildingModels.GlassSlot];
+                Assert.Greater(Mathf.Min(walls.r, walls.g, walls.b), 0.88f, "the walls are white");
+                Assert.Less(walls.maxColorComponent - Mathf.Min(walls.r, walls.g, walls.b), 0.04f, "the walls have no tint");
+                Assert.Less(glass.maxColorComponent, 0.1f, "the glass is black");
+                Assert.AreEqual("Glass", BuildingModels.Slots[BuildingModels.GlassSlot]);
+                Assert.AreEqual("Roof", BuildingModels.Slots[BuildingModels.RoofSlot]);
+                Assert.AreEqual(walls, BuildingModels.WallColor);
+
                 var owner = new Color(0.9f, 0.2f, 0.2f);
-                BuildingModels.PaintOwner(house, owner);
-                foreach (Transform part in house.transform)
+                Assert.AreEqual(owner, BuildingModels.RoofColor(owner), "the roof is the player's colour as it is");
+                Assert.AreEqual(BuildingModels.SlotColors[BuildingModels.RoofSlot], BuildingModels.RoofColor(null), "nobody's roof is terracotta");
+
+                // Every house and the hotel has a roof to wear it (the flat-roofed ones their slabs) and windows; owned,
+                // only the roof changes.
+                for (int level = 1; level <= SquareDefinition.MaxBuildingLevel; level++)
                 {
-                    int slot = Array.IndexOf(BuildingModels.Slots, part.name);
-                    Color expected = slot == BuildingModels.WallSlot ? Color.Lerp(owner, Color.white, BuildingModels.OwnerLightening) : BuildingModels.SlotColors[slot];
-                    Assert.That(Vector4.Distance(expected, part.GetComponent<Renderer>().sharedMaterial.color), Is.LessThan(1e-4f), part.name);
+                    GameObject house = BuildingModels.Create(level, $"Owned {level}", root.transform);
+                    Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.RoofSlot]), $"level {level} has a roof");
+                    Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.GlassSlot]), $"level {level} has windows");
+                    BuildingModels.PaintOwner(house, owner);
+                    foreach (Transform part in house.transform)
+                    {
+                        int slot = Array.IndexOf(BuildingModels.Slots, part.name);
+                        Color expected = slot == BuildingModels.RoofSlot ? owner : BuildingModels.SlotColors[slot];
+                        Assert.That(Vector4.Distance(expected, part.GetComponent<Renderer>().sharedMaterial.color), Is.LessThan(1e-4f), $"level {level} {part.name}");
+                    }
+
+                    BuildingModels.PaintOwner(house, null);
+                    foreach (Transform part in house.transform)
+                    {
+                        int slot = Array.IndexOf(BuildingModels.Slots, part.name);
+                        Assert.That(Vector4.Distance(BuildingModels.SlotColors[slot], part.GetComponent<Renderer>().sharedMaterial.color), Is.LessThan(1e-4f),
+                            $"unowned, level {level}'s {part.name} is its own colour again");
+                    }
                 }
 
-                BuildingModels.PaintOwner(house, null);
-                Assert.That(Vector4.Distance(BuildingModels.SlotColors[BuildingModels.WallSlot], house.transform.GetChild(0).GetComponent<Renderer>().sharedMaterial.color),
-                    Is.LessThan(1e-4f), "unowned, the walls are white again");
+                // The plot has no roof: its paving and sign wear the colour, a little lightened.
+                GameObject plot = BuildingModels.Create(0, "Owned plot", root.transform);
+                Assert.IsNull(plot.transform.Find(BuildingModels.Slots[BuildingModels.RoofSlot]), "the plot has no roof");
+                BuildingModels.PaintOwner(plot, owner);
+                Assert.That(Vector4.Distance(Color.Lerp(owner, Color.white, BuildingModels.OwnerLightening), BuildingModels.PlotColor(owner)), Is.LessThan(1e-6f));
+                Assert.That(Vector4.Distance(BuildingModels.PlotColor(owner), plot.transform.GetChild(0).GetComponent<Renderer>().sharedMaterial.color),
+                    Is.LessThan(1e-4f), "the plot's paving is the owner's");
+                BuildingModels.PaintOwner(plot, null);
+                Assert.That(Vector4.Distance(walls, plot.transform.GetChild(0).GetComponent<Renderer>().sharedMaterial.color), Is.LessThan(1e-4f), "nobody's plot is white");
 
                 Assert.IsNull(BuildingModels.Create(SquareDefinition.MaxBuildingLevel + 1, "Too high", root.transform));
 

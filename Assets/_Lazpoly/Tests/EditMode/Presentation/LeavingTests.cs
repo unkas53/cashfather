@@ -468,6 +468,13 @@ namespace Lazpoly.Presentation.Tests
                 Assert.AreEqual(Leaving.Demolished, burst.How);
                 Assert.AreEqual(LeavingBurst.DemolishedParticles, burst.Particles.Count);
                 Assert.AreEqual(LeavingBurst.Rubble, burst.RubbleCount);
+
+                // The rubble is of the building's colours: its white walls (a little soiled), its roof and mortar.
+                Color[] tones = LeavingBurst.RubbleTones(Color.white, Color.blue);
+                Assert.AreEqual(3, tones.Length);
+                Assert.Greater(Mathf.Min(tones[0].r, tones[0].g, tones[0].b), 0.75f, "the walls' rubble is no longer light");
+                Assert.AreEqual(Color.blue, tones[1], "a third of the rubble is the roof's colour");
+                Assert.AreNotEqual(Color.blue, LeavingBurst.RubbleTones(Color.white, null)[1], "with no roof given the rubble is the wall's alone");
                 Assert.That(burst.Seconds, Is.InRange(LeavingMotion.DemolishedSeconds + 0.8f, 3f), "the dust hangs a while after the building, but not long");
                 for (int i = 0; i < burst.RubbleCount; i++) Assert.IsFalse(burst.RubbleShown(i), "rubble shows before the walls give way");
 

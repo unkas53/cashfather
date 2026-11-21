@@ -249,8 +249,8 @@ namespace Lazpoly.Presentation.Models
         }
 
         /// <summary>
-        /// The picture of <paramref name="level"/> on a tile tinted <paramref name="tile"/>, its walls in
-        /// <paramref name="owner"/>'s colour (white for nobody's), drawn now if it is not kept yet. Null when the
+        /// The picture of <paramref name="level"/> on a tile tinted <paramref name="tile"/>, its roof in
+        /// <paramref name="owner"/>'s colour (terracotta for nobody's), drawn now if it is not kept yet. Null when the
         /// pictures cannot be made here.
         /// </summary>
         public Texture Picture(int level, Color tile, Color? owner = null)

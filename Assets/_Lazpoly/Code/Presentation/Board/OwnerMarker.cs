@@ -86,7 +86,7 @@ namespace Lazpoly.Presentation.Tabletop
         public void Turn(Vector3 outward, float yaw) =>
             transform.localRotation = Quaternion.LookRotation(IsPlot || IsResort ? BoardView.BuildingFront(outward, yaw) : -outward);
 
-        /// <summary>Colours the marker for its owner: the plot's paving and sign face (lightened like the buildings' walls), or the pennant.</summary>
+        /// <summary>Colours the marker for its owner: the plot's paving and sign face (lightened a little; it has no roof to wear it), or the pennant.</summary>
         public void Paint(Color color)
         {
             if (IsResort)

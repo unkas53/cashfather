@@ -9,7 +9,7 @@ namespace Lazpoly.Presentation.Effects
     /// game, and dollar signs for the gold glints). Sold: a ring of gold spreads over the ground, the building is gone
     /// in a flash and a puff of white cloud, and dollar signs spring up out of it, gold and money green, hang, and
     /// fade. Torn down: puffs at the jolt, then cartoon dust bursting out from the foot and up its height, a ring over
-    /// the ground, grit, and rubble in the colour of its walls thrown out to bounce and lie. The clouds are the game's
+    /// the ground, grit, and rubble in the colours of its walls and roof thrown out to bounce and lie. The clouds are the game's
     /// kind: clean shapes of two tones that pop out and dwindle away, not smoke. Everything see-through is a quad of one
     /// mesh that faces the eye (<see cref="SoftBurst"/>); the rubble is solid and casts shadows. It clears itself away.
     /// </summary>
@@ -85,11 +85,12 @@ namespace Lazpoly.Presentation.Effects
         /// Starts the burst of a building leaving, under <paramref name="parent"/> and in its frame: the building stands
         /// with the middle of its foot at <paramref name="foot"/>, <paramref name="width"/> across and
         /// <paramref name="height"/> high, on a square <paramref name="tile"/> wide; a sold one rises by
-        /// <paramref name="lift"/> as it goes. The rubble takes <paramref name="wall"/>'s colour; <paramref name="seed"/>
-        /// settles the scatter, so the same building always leaves the same way. No rubble goes further from the parent's
-        /// middle than <paramref name="bound"/> along either side (the table's edge), where one is given.
+        /// <paramref name="lift"/> as it goes. The rubble takes <paramref name="wall"/>'s colour, and where one is given
+        /// a third of it <paramref name="roof"/>'s; <paramref name="seed"/> settles the scatter, so the same building
+        /// always leaves the same way. No rubble goes further from the parent's middle than <paramref name="bound"/>
+        /// along either side (the table's edge), where one is given.
         /// </summary>
-        public static LeavingBurst Play(Transform parent, Leaving how, Vector3 foot, float width, float height, float tile, float lift, Color wall, int seed, float bound = 0f)
+        public static LeavingBurst Play(Transform parent, Leaving how, Vector3 foot, float width, float height, float tile, float lift, Color wall, int seed, float bound = 0f, Color? roof = null)
         {
             var root = new GameObject(how == Leaving.Demolished ? "Demolition dust" : "Sale puff");
             root.transform.SetParent(parent, false);
@@ -98,7 +99,7 @@ namespace Lazpoly.Presentation.Effects
             burst._tile = tile;
             burst._bound = bound;
             burst.Begin(seed);
-            if (how == Leaving.Demolished) burst.LayDemolition(foot, width, height, tile, wall);
+            if (how == Leaving.Demolished) burst.LayDemolition(foot, width, height, tile, wall, roof);
             else burst.LaySale(foot, width, height, tile, lift);
             foreach (Chunk chunk in burst._chunks) burst.Outlast(chunk.Born + RubbleSeconds + RubbleGone);
             burst.Ready("Leaving burst");
@@ -164,7 +165,7 @@ namespace Lazpoly.Presentation.Effects
             }
         }
 
-        private void LayDemolition(Vector3 foot, float width, float height, float tile, Color wall)
+        private void LayDemolition(Vector3 foot, float width, float height, float tile, Color wall, Color? roof)
         {
             float drop = LeavingMotion.DemolishedSeconds * LeavingMotion.Jolt;
 
@@ -257,8 +258,8 @@ namespace Lazpoly.Presentation.Effects
                 }, i + 2);
             }
 
-            // The rubble: broken slabs of wall, of its darker courses and of mortar, thrown up and out of the lower storeys.
-            Color[] tones = { Color.Lerp(wall, Color.black, 0.18f), Color.Lerp(wall, Color.black, 0.5f), Color.Lerp(wall, new Color(0.6f, 0.57f, 0.52f), 0.75f) };
+            // The rubble: broken slabs of wall, of its roof (or its darker courses) and of mortar, thrown up and out of the lower storeys.
+            Color[] tones = RubbleTones(wall, roof);
             Mesh block = MeshFactory.RoundedBox(Vector3.one, 0.07f, 1);
             for (int i = 0; i < Rubble; i++)
             {
@@ -280,6 +281,15 @@ namespace Lazpoly.Presentation.Effects
                 _chunks.Add(chunk);
             }
         }
+
+        /// <summary>
+        /// The three tones a torn down building's rubble is in, a third of the pieces each: its <paramref name="wall"/>
+        /// a little soiled, its <paramref name="roof"/> (the wall's darker courses where it has none), and mortar.
+        /// </summary>
+        public static Color[] RubbleTones(Color wall, Color? roof) => new[]
+        {
+            Color.Lerp(wall, Color.black, 0.18f), roof ?? Color.Lerp(wall, Color.black, 0.5f), Color.Lerp(wall, new Color(0.6f, 0.57f, 0.52f), 0.75f),
+        };
 
         /// <summary>One piece of rubble; pieces of a tone share its material.</summary>
         private Transform Block(Mesh mesh, Color[] tones, int tone)

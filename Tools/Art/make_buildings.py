@@ -4,9 +4,10 @@
 The Blender file holds six models, each an empty (Plot_00, House_01..House_04, Hotel_05) with its parts as named
 child meshes: bodies, window and door openings (jambs, lintels, sills, mullions...), door panels, roofs, balconies,
 the foundation and kerbs, the plot's sale sign. They share one white material. The game paints them:
-the walls in the owner's colour and the rest in fixed colours, so this script sorts every part into a slot
+the roofs in the owner's colour (the owner's wish, 2026-11-21), the walls white, the glass black and the rest in
+fixed colours, so this script sorts every part into a slot
 (SLOT_RULES) and writes one mesh per slot. The window panes are no parts of their own: they are the faces of a
-body at the back of a window opening, picked out as GLASS. The plot's sale sign is made SIGN_SCALE times larger
+body inside a window opening (the back of the recess and its reveals), picked out as GLASS. The plot's sale sign is made SIGN_SCALE times larger
 so it reads from the game's camera.
 
 Every model goes into the pack twice: whole, as made (the game shows it at the High graphics quality), and a light
@@ -43,6 +44,8 @@ SLOT_RULES = [
     (r"DoorPanel|BoundaryStake|SaleSign_Post", "Door"),
     (r"Handle|Hotel_H_", "Metal"),
     (r"Penthouse_Window", "Glass"),
+    # The slabs that close a flat-roofed building at the top are its roof (the apartment house has no other).
+    (r"Apartment_Cornice|Hotel_WingCornice", "Roof"),
     (r"_Opening_\d+_(Jamb|Lintel|Sill|Mullion|Transom|Horizontal|Vertical)|Balcony_(Rail|Post|Baluster)|Stringcourse|"
      r"Cornice|TowerBelt|Parapet|EntryColumn|SaleSign_Board", "Trim"),
     (r"Roof|Ridge|Chimney|Canopy|PorteCochere|Hotel_Crown", "Roof"),
@@ -96,7 +99,7 @@ def bounds(points):
 
 
 def glass_faces(body_name, body_positions, body_normals, openings):
-    """Triangles of a body that form the back of one of its window openings (not doors)."""
+    """Triangles of a body that form the recess of one of its window openings (not doors): its back and its reveals."""
     picked = np.zeros(len(body_positions), bool)
     centres = body_positions.mean(axis=1)
     face_normals = body_normals.mean(axis=1)
@@ -114,6 +117,10 @@ def glass_faces(body_name, body_positions, body_normals, openings):
         inside &= (centres[:, 2] > low[2] + 0.004) & (centres[:, 2] < high[2] - 0.004)
         facing = np.abs(face_normals[:, across]) > 0.9
         picked |= inside & facing
+        # The rest of the recess (its sides, sill, head and their chamfers) is glass too: the game looks down from the
+        # side, so the reveals hide three quarters of the pane at the back, and a window is as dark as its recess.
+        reach = margin + 0.001
+        picked |= np.all((body_positions >= low - reach) & (body_positions <= high + reach), axis=(1, 2))
     return picked
 
 

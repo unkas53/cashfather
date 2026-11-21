@@ -32,7 +32,9 @@ import numpy as np
 
 SOURCE = os.path.join("Tools", "Art", "Models", "Buildings", "Lazpoly_Buildings.blend")
 TARGET = os.path.join("Assets", "_Lazpoly", "Data", "Resources", "Lazpoly", "Models", "buildings.bytes")
-MODELS = ["Plot_00", "House_01", "House_02", "House_03", "House_04", "Hotel_05"]
+# House_04 (the flat-roofed block) stays in the file but not in the pack: the game has three houses and the hotel
+# since the fourth house left the rules (2026-11-21).
+MODELS = ["Plot_00", "House_01", "House_02", "House_03", "Hotel_05"]
 LOW_SUFFIX = "_Low"
 KEEP = 0.3      # share of the triangles the light copies keep
 AGGRESSION = 3  # fast-simplification's agg: low keeps the shape at the cost of reaching KEEP

@@ -75,6 +75,10 @@ namespace Lazpoly.Core.State
         /// <summary>Null unless rent waits on the current player's rent-shield choice.</summary>
         public DebtState RentDue;
 
+        /// <summary>The cards out of the deck since it was last shuffled, in rising order, and the card drawn last; null and none in older snapshots.</summary>
+        public List<int> DrawnCards = new List<int>();
+        public int LastDrawnCard = GameState.NoCard;
+
         public static GameStateSnapshot Capture(GameState state)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
@@ -108,6 +112,8 @@ namespace Lazpoly.Core.State
                 CardPlayedThisTurn = state.CardPlayedThisTurn,
                 RodeThisTurn = state.RodeThisTurn,
                 RentDue = state.RentDue,
+                DrawnCards = new List<int>(state.DrawnCards),
+                LastDrawnCard = state.LastDrawnCard,
             };
 
             foreach (PlayerState player in state.Players)

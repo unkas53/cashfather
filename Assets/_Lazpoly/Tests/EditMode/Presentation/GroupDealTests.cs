@@ -11,7 +11,7 @@ namespace Lazpoly.Presentation.Tests
 {
     public class GroupDealTests
     {
-        private static readonly int[] Rents = { 50, 150, 400, 550, 700 };
+        private static readonly int[] Rents = { 50, 150, 400, 700 };
 
         private static readonly BoardDefinition Board = new BoardDefinition(new[]
         {

@@ -43,13 +43,13 @@ namespace Lazpoly.Presentation.Tests
         }
 
         /// <summary>The Blender file's triangles per model (all its slots, less the few with no area): the whole copies keep every one.</summary>
-        private static readonly int[] SourceTriangles = { 2060, 7223, 14200, 19820, 25632, 51526 };
+        private static readonly int[] SourceTriangles = { 2060, 7223, 14200, 19820, 51526 };
 
         [Test]
         public void ThePackHoldsEachLevelWholeAndAsALightCopy()
         {
             IReadOnlyList<BuildingMesh> pack = BuildingPack.Parse(PackFile());
-            Assert.AreEqual(SquareDefinition.MaxBuildingLevel + 1, BuildingModels.Names.Length, "the plot, four houses and the hotel");
+            Assert.AreEqual(SquareDefinition.MaxBuildingLevel + 1, BuildingModels.Names.Length, "the plot, three houses and the hotel");
 
             var names = new HashSet<string>();
             foreach (BuildingMesh mesh in pack) Assert.IsTrue(names.Add(mesh.Name), $"{mesh.Name} is in the pack once");

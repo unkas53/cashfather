@@ -114,6 +114,8 @@ namespace Lazpoly.Presentation.Texts
                     return F($"{NameOf(state, e.PlayerId)} {e.Amount} ödeyemiyor ({ReasonText(e.Reason)}): para bulmalı ya da iflas etmeli");
                 case DebtClearedEvent _:
                     return null;
+                case DeckShuffledEvent _:
+                    return L("Şans destesi bitti, kartlar yeniden karıldı");
                 case CardDrawnEvent e:
                     return F($"{NameOf(state, e.PlayerId)} kart çekti: {L(CardText(board, e.CardIndex))}");
                 case LookoutChangedEvent e:

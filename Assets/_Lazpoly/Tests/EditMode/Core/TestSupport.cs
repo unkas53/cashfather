@@ -66,7 +66,7 @@ namespace Lazpoly.Core.Tests
         {
             SquareDefinition Dev(string name, int price, int rent, int group, int cost) =>
                 SquareDefinition.Property(name, price, rent, group, cost,
-                    new[] { rent * 5, rent * 15, rent * 40, rent * 55, rent * 70 });
+                    new[] { rent * 5, rent * 15, rent * 40, rent * 70 });
 
             return new BoardDefinition(new[]
             {

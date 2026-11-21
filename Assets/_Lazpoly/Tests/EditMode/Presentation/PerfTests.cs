@@ -99,14 +99,14 @@ namespace Lazpoly.Presentation.Tests
             var board = new BoardDefinition(new[]
             {
                 SquareDefinition.Start("Start"),
-                SquareDefinition.Property("A1", 60, 6, 1, 50, new[] { 30, 90, 240, 330, 420 }),
-                SquareDefinition.Property("A2", 80, 8, 1, 50, new[] { 40, 120, 320, 440, 560 }),
+                SquareDefinition.Property("A1", 60, 6, 1, 50, new[] { 30, 90, 240, 420 }),
+                SquareDefinition.Property("A2", 80, 8, 1, 50, new[] { 40, 120, 320, 560 }),
                 SquareDefinition.Tax("Tax", 100),
-                SquareDefinition.Property("B1", 120, 12, 2, 100, new[] { 60, 180, 480, 660, 840 }),
-                SquareDefinition.Property("B2", 140, 14, 2, 100, new[] { 70, 210, 560, 770, 980 }),
+                SquareDefinition.Property("B1", 120, 12, 2, 100, new[] { 60, 180, 480, 840 }),
+                SquareDefinition.Property("B2", 140, 14, 2, 100, new[] { 70, 210, 560, 980 }),
                 SquareDefinition.Rest("Rest"),
-                SquareDefinition.Property("C1", 200, 20, 3, 150, new[] { 100, 300, 800, 1100, 1400 }),
-                SquareDefinition.Property("C2", 220, 22, 3, 150, new[] { 110, 330, 880, 1210, 1540 }),
+                SquareDefinition.Property("C1", 200, 20, 3, 150, new[] { 100, 300, 800, 1400 }),
+                SquareDefinition.Property("C2", 220, 22, 3, 150, new[] { 110, 330, 880, 1540 }),
                 SquareDefinition.Property("Solo", 150, 15, 0),
             });
             var rules = new RulesConfig(800, 100, 6, 3, 2, 50);
@@ -124,7 +124,7 @@ namespace Lazpoly.Presentation.Tests
                 else Assert.AreEqual(0, built.State.GetBuildingLevel(i));
             }
 
-            CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3, 4, 5 }, levels, "every building level, and the bare plot, stands somewhere");
+            CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3, 4 }, levels, "every building level, and the bare plot, stands somewhere");
             for (int i = 0; i < board.Count; i++)
             {
                 if (board[i].IsResort) Assert.AreEqual(built.State.Players[0].Id, built.State.GetOwner(i), "one player holds every resort");

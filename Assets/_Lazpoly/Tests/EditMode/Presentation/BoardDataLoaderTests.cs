@@ -305,7 +305,7 @@ namespace Lazpoly.Presentation.Tests
                 ""squares"": [
                     { ""type"": ""start"", ""name"": ""S"" },
                     { ""type"": ""property"", ""name"": ""P"", ""price"": 60, ""rent"": 5, ""group"": 1,
-                      ""buildingCost"": 50, ""rents"": [25, 75, 200, 275, 350] },
+                      ""buildingCost"": 50, ""rents"": [25, 75, 200, 350] },
                     { ""type"": ""property"", ""name"": ""Q"", ""price"": 60, ""rent"": 5, ""group"": 1 }
                 ]
             }";
@@ -314,7 +314,7 @@ namespace Lazpoly.Presentation.Tests
 
             Assert.AreEqual(40, data.Rules.BuildingSellbackPercent);
             Assert.AreEqual(50, data.Board[1].BuildingCost);
-            CollectionAssert.AreEqual(new[] { 25, 75, 200, 275, 350 }, data.Board[1].DevelopedRents);
+            CollectionAssert.AreEqual(new[] { 25, 75, 200, 350 }, data.Board[1].DevelopedRents);
             Assert.IsFalse(data.Board[2].IsDevelopable);
         }
 

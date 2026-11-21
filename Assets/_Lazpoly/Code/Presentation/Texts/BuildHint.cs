@@ -29,7 +29,7 @@ namespace Lazpoly.Presentation.Texts
                 return L("Ev ya da otel, kendi sıranda bu şehre gelince kurulur.");
 
             if (GameRules.NextIsHotel(state, squareIndex) && state.BuiltThisVisit > 0)
-                return L("Otel, dört evli şehre bir sonraki gelişinde kurulur.");
+                return L("Otel, üç evli şehre bir sonraki gelişinde kurulur.");
             if (player.Laps == 0 && level >= GameRules.FirstLapHouseLimit)
                 return F($"Başlangıçtan geçene kadar her şehre tek ev; sonra {GameRules.MaxHouses} eve kadar.");
 

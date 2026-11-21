@@ -122,6 +122,7 @@ namespace Lazpoly.App.Tests
                 new PhaseChangedEvent(GamePhase.AwaitingRentShield),
                 new PhaseChangedEvent(GamePhase.AwaitingCardUse),
                 new MoneyChangedEvent(2, -60000, MoneyReason.Audit),
+                new DeckShuffledEvent(),
             });
             yield return events;
             yield return new RejectedMessage { Reason = RejectionReason.NotYourPlayer };
@@ -247,6 +248,8 @@ namespace Lazpoly.App.Tests
             snapshot.CardPlayedThisTurn = true;
             snapshot.RodeThisTurn = true;
             snapshot.RentDue = new DebtState(snapshot.Players[0].Id, snapshot.Players[1].Id, 70000, MoneyReason.Rent);
+            snapshot.DrawnCards.AddRange(new[] { 3, 7, 30 });
+            snapshot.LastDrawnCard = 7;
 
             var w = new NetWriter();
             MessageCodec.WriteSnapshot(w, snapshot);
@@ -259,6 +262,13 @@ namespace Lazpoly.App.Tests
             Assert.AreEqual(2, read.StrikeTurns[2]);
             Assert.IsTrue(read.CardPlayedThisTurn && read.RodeThisTurn);
             Assert.AreEqual(70000, read.RentDue.Amount);
+            CollectionAssert.AreEqual(new[] { 3, 7, 30 }, read.DrawnCards, "The deck travels: the cards out of it");
+            Assert.AreEqual(7, read.LastDrawnCard, "and the one that came last.");
+
+            GameStateSnapshot cards = MessageCodec.ReadSnapshot(new NetReader(bytes), MessageCodec.CardSnapshotVersion);
+            Assert.AreEqual(0, cards.DrawnCards.Count, "layout 12 knows no deck: a whole one");
+            Assert.AreEqual(GameState.NoCard, cards.LastDrawnCard);
+            CollectionAssert.AreEqual(new[] { 30, 31 }, cards.Players[0].Hand);
 
             GameStateSnapshot clock = MessageCodec.ReadSnapshot(new NetReader(bytes), MessageCodec.ClockSnapshotVersion);
             Assert.AreEqual(0, clock.Players[0].Hand.Count, "layout 11 knows no cards");

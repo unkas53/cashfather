@@ -1130,7 +1130,7 @@ namespace Lazpoly.Presentation.Game
 
         /// <summary>
         /// Shows the buildings in every player's colour (the owner's wish, 2026-11-21: the roof in the player's colour,
-        /// the rest in colours that suit the table), on five towns nobody owns: a house of each height and a hotel,
+        /// the rest in colours that suit the table), on four towns nobody owns: a house of each height and a hotel,
         /// each the next player's ("bina-renkleri").
         /// </summary>
         private IEnumerator TourColours()
@@ -1199,6 +1199,16 @@ namespace Lazpoly.Presentation.Game
             {
                 yield return ScreenTour.Take("bina-karti");
                 hud.CloseTop();
+            }
+
+            // The hotel's own card (the owner's rule, 2026-11-21), on the town just bought as if it stood at its three houses.
+            int bought = _session.State.FindPlayer(person).Position;
+            if (_session.State.GetOwner(bought) == person && _session.Board[bought].IsDevelopable)
+            {
+                hud.StageHotel(bought);
+                yield return ScreenTour.Until(() => hud.BuildCardOpen, 3f);
+                yield return ScreenTour.Take("otel-karti");
+                hud.StageHotel(-1);
             }
 
             hud.PinSquare(_session.State.FindPlayer(person).Position);

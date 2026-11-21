@@ -20,7 +20,7 @@ namespace Lazpoly.Net.Messages
         /// not end on another player's town. 10: the engine
         /// ends an insolvent player's game at once and the turn ends by itself. Mixed builds must not share a table.
         /// </summary>
-        public const int ProtocolVersion = 24;
+        public const int ProtocolVersion = 25;
 
         private enum CommandTag : byte
         {
@@ -45,6 +45,7 @@ namespace Lazpoly.Net.Messages
             PotChanged = 19, CardDrawn = 20, Lookout = 21, DiceOptions = 22, TimedOut = 23,
             Jail = 24, CupHosted = 25, Clock = 26,
             CardPlayed = 27, CardDiscarded = 28, Shield = 29, Strike = 30, Fund = 31, RentDue = 32, RentDueCleared = 33,
+            DeckShuffled = 34,
         }
 
         public static byte[] Encode(NetMessage message)
@@ -346,6 +347,9 @@ namespace Lazpoly.Net.Messages
                 case PotChangedEvent e:
                     w.WriteByte((byte)EventTag.PotChanged); w.WriteInt(e.Delta);
                     break;
+                case DeckShuffledEvent _:
+                    w.WriteByte((byte)EventTag.DeckShuffled);
+                    break;
                 case CardDrawnEvent e:
                     w.WriteByte((byte)EventTag.CardDrawn); w.WriteInt(e.PlayerId); w.WriteInt(e.CardIndex); w.WriteBool(e.Kept);
                     break;
@@ -415,6 +419,7 @@ namespace Lazpoly.Net.Messages
                 case EventTag.DebtCleared: return new DebtClearedEvent(r.ReadInt());
                 case EventTag.PotChanged: return new PotChangedEvent(r.ReadInt());
                 case EventTag.CardDrawn: return new CardDrawnEvent(r.ReadInt(), r.ReadInt(), r.ReadBool());
+                case EventTag.DeckShuffled: return new DeckShuffledEvent();
                 case EventTag.Lookout: return new LookoutChangedEvent(r.ReadInt(), r.ReadBool());
                 case EventTag.Jail: return new JailChangedEvent(r.ReadInt(), r.ReadInt(), r.ReadBool());
                 case EventTag.CupHosted: return new CupHostedEvent(r.ReadInt(), r.ReadInt(), r.ReadInt(), r.ReadBool());
@@ -528,10 +533,19 @@ namespace Lazpoly.Net.Messages
                 w.WriteInt(s.RentDue.CreditorId);
                 w.WriteInt(s.RentDue.Amount);
             }
+
+            // Layout 13 (Faz 55): the deck.
+            List<int> drawn = s.DrawnCards ?? new List<int>();
+            w.WriteInt(drawn.Count);
+            foreach (int card in drawn) w.WriteInt(card);
+            w.WriteInt(s.LastDrawnCard);
         }
 
         /// <summary>The snapshot layout written today.</summary>
-        public const int SnapshotVersion = CardSnapshotVersion;
+        public const int SnapshotVersion = DeckSnapshotVersion;
+
+        /// <summary>Layout 13 (Faz 55) added the deck: the cards out of it since it was last shuffled and the card drawn last.</summary>
+        public const int DeckSnapshotVersion = 13;
 
         /// <summary>Layout 12 (Faz 30) added the strategic cards: hands, funds, shields, strikes, the turn's card and the waiting rent.</summary>
         public const int CardSnapshotVersion = 12;
@@ -699,6 +713,13 @@ namespace Lazpoly.Net.Messages
                 s.CardPlayedThisTurn = r.ReadBool();
                 s.RodeThisTurn = r.ReadBool();
                 if (r.ReadBool()) s.RentDue = new DebtState(r.ReadInt(), r.ReadInt(), r.ReadInt(), MoneyReason.Rent);
+            }
+
+            if (version >= DeckSnapshotVersion)
+            {
+                int drawn = r.ReadCount();
+                for (int i = 0; i < drawn; i++) s.DrawnCards.Add(r.ReadInt());
+                s.LastDrawnCard = r.ReadInt();
             }
 
             return s;

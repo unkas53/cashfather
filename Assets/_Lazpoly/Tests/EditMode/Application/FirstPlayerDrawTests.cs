@@ -14,11 +14,11 @@ namespace Lazpoly.App.Tests
         private static readonly BoardDefinition Board = new BoardDefinition(new[]
         {
             SquareDefinition.Start("Start"),
-            SquareDefinition.Property("A1", 60, 6, 1, 50, new[] { 30, 90, 240, 330, 420 }),
-            SquareDefinition.Property("A2", 80, 8, 1, 50, new[] { 40, 120, 320, 440, 560 }),
+            SquareDefinition.Property("A1", 60, 6, 1, 50, new[] { 30, 90, 240, 420 }),
+            SquareDefinition.Property("A2", 80, 8, 1, 50, new[] { 40, 120, 320, 560 }),
             SquareDefinition.Rest("Rest"),
-            SquareDefinition.Property("B1", 120, 12, 2, 100, new[] { 60, 180, 480, 660, 840 }),
-            SquareDefinition.Property("B2", 140, 14, 2, 100, new[] { 70, 210, 560, 770, 980 }),
+            SquareDefinition.Property("B1", 120, 12, 2, 100, new[] { 60, 180, 480, 840 }),
+            SquareDefinition.Property("B2", 140, 14, 2, 100, new[] { 70, 210, 560, 980 }),
         });
 
         private static readonly RulesConfig Rules = new RulesConfig(5000, 100, 6, 3, 2, 50);

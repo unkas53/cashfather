@@ -50,7 +50,7 @@ namespace Lazpoly.Core.Tests
         private static BoardDefinition Board()
         {
             SquareDefinition Dev(string name, int price, int rent, int group) =>
-                SquareDefinition.Property(name, price, rent, group, 50, new[] { rent * 5, rent * 15, rent * 40, rent * 55, rent * 70 });
+                SquareDefinition.Property(name, price, rent, group, 50, new[] { rent * 5, rent * 15, rent * 40, rent * 70 });
 
             var squares = new SquareDefinition[24];
             for (int i = 0; i < squares.Length; i++) squares[i] = SquareDefinition.Rest($"Rest {i}");
@@ -166,7 +166,8 @@ namespace Lazpoly.Core.Tests
             Accept(engine, new DiscardCardCommand(Alice, Chauffeur));
             CollectionAssert.AreEqual(new[] { Lawyer, Fund, Audit, Shield }, Player(engine, Alice).Hand);
             Assert.AreEqual(GamePhase.TurnEnd, engine.State.Phase);
-            CollectionAssert.Contains(GameRules.DrawableCards(engine.Board, engine.State), Chauffeur, "back in the deck");
+            CollectionAssert.DoesNotContain(GameRules.DrawableCards(engine.Board, engine.State), Chauffeur, "let go: with the cards that came, until the deck runs out");
+            CollectionAssert.Contains(GameRules.ShuffledDeck(engine.Board, engine.State, GameState.NoCard), Chauffeur, "back in with the next shuffle");
         }
 
         // ---- Use it or keep it, as it is drawn (the owner's wish, 2026-11-12) ----
@@ -192,7 +193,8 @@ namespace Lazpoly.Core.Tests
             Assert.AreEqual(0, Player(engine, Alice).Hand.Count, "used, so it never stayed in the hand");
             Assert.IsTrue(engine.State.CardPlayedThisTurn, "it is the turn's one card");
             Assert.AreEqual(GamePhase.TurnEnd, engine.State.Phase, "the move it was drawn on is over");
-            CollectionAssert.Contains(GameRules.DrawableCards(engine.Board, engine.State), ForceSale, "back in the deck");
+            CollectionAssert.DoesNotContain(GameRules.DrawableCards(engine.Board, engine.State), ForceSale, "played: it does not come again before the deck runs out");
+            CollectionAssert.Contains(GameRules.ShuffledDeck(engine.Board, engine.State, GameState.NoCard), ForceSale, "back in with the next shuffle");
         }
 
         [Test]
@@ -217,10 +219,10 @@ namespace Lazpoly.Core.Tests
                 Seat(s, Alice).Position = 0;
                 Seat(s, Alice).Hand.Add(Fund);
                 s.Owners[A1] = Alice;
-            }, 1, 2, Shield);
+            }, 1, 2, Shield - 1);
             Accept(played, new PlayCardCommand(Alice, Fund));
             Accept(played, new RollDiceCommand(Alice));
-            Assert.AreEqual(Shield, GameRules.DrawnCard(played.State));
+            Assert.AreEqual(Shield, GameRules.DrawnCard(played.State), "the played fund is out of the deck too: the shield is one place earlier");
             Assert.AreEqual(RejectionReason.CardAlreadyPlayed, Reason(played, new PlayCardCommand(Alice, Shield, A1)));
             Accept(played, new KeepCardCommand(Alice));
             CollectionAssert.AreEqual(new[] { Shield }, Player(played, Alice).Hand);
@@ -316,7 +318,7 @@ namespace Lazpoly.Core.Tests
                 Seat(s, Alice).Position = 22;
                 Seat(s, Alice).Hand.Add(Shield);
                 s.Owners[A1] = Bob;
-                s.BuildingLevels[A1] = 5;
+                s.BuildingLevels[A1] = SquareDefinition.MaxBuildingLevel;
             }, 1, 2);
 
             Accept(engine, new RollDiceCommand(Alice));
@@ -491,7 +493,7 @@ namespace Lazpoly.Core.Tests
                 Seat(s, Alice).Hand.Add(Renewal);
                 Seat(s, Alice).Laps = 1;
                 s.Owners[A1] = Alice;
-                s.BuildingLevels[A1] = 4;
+                s.BuildingLevels[A1] = GameRules.MaxHouses;
             });
             Accept(hotel, new PlayCardCommand(Alice, Renewal, A1));
             Assert.AreEqual(SquareDefinition.MaxBuildingLevel, hotel.State.GetBuildingLevel(A1), "four houses take the hotel");
@@ -627,7 +629,7 @@ namespace Lazpoly.Core.Tests
                 Seat(s, Bob).Money = 10;
                 s.Owners[B1] = Bob;
                 s.Owners[B2] = Bob;
-                s.BuildingLevels[B1] = 5;
+                s.BuildingLevels[B1] = SquareDefinition.MaxBuildingLevel;
             });
             Accept(poor, new PlayCardCommand(Alice, Audit, Bob));
             Assert.AreEqual(0, Player(poor, Bob).Money, "never more than the cash");
@@ -642,7 +644,7 @@ namespace Lazpoly.Core.Tests
                 s.Owners[B1] = Bob;
                 s.Owners[B2] = Bob;
                 s.BuildingLevels[B1] = 3;
-                s.BuildingLevels[B2] = 5;
+                s.BuildingLevels[B2] = SquareDefinition.MaxBuildingLevel;
             });
 
             Assert.AreEqual(RejectionReason.InvalidTarget, Reason(engine, new PlayCardCommand(Alice, Demolish, B2)), "hotels are spared");
@@ -662,7 +664,7 @@ namespace Lazpoly.Core.Tests
                 s.Owners[B1] = Bob;
                 s.Owners[B2] = Bob;
                 s.BuildingLevels[B1] = 3;
-                s.BuildingLevels[B2] = 5;
+                s.BuildingLevels[B2] = SquareDefinition.MaxBuildingLevel;
             });
 
             Assert.AreEqual(RejectionReason.InvalidTarget, Reason(engine, new PlayCardCommand(Alice, IllegalFloor, A1)), "no houses");
@@ -680,7 +682,7 @@ namespace Lazpoly.Core.Tests
             {
                 Seat(s, Alice).Hand.Add(ForceSale);
                 s.Owners[B1] = Bob;
-                s.BuildingLevels[B1] = 5;
+                s.BuildingLevels[B1] = SquareDefinition.MaxBuildingLevel;
             });
 
             int proceeds = GameRules.PropertySaleProceeds(engine.Board, engine.Rules, engine.State, B1);

@@ -197,6 +197,14 @@ namespace Lazpoly.Core.Events
         public int Delta { get; }
     }
 
+    /// <summary>
+    /// The deck ran out and was shuffled again: every card not in a hand may come once more (the owner's rule,
+    /// 2026-11-21). The next card drawn follows as its own event.
+    /// </summary>
+    public sealed class DeckShuffledEvent : GameEvent
+    {
+    }
+
     /// <summary>A player drew a card; its effect follows as separate events, or it goes into their hand.</summary>
     public sealed class CardDrawnEvent : GameEvent
     {

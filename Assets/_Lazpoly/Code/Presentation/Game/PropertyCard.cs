@@ -17,12 +17,14 @@ namespace Lazpoly.Presentation.Game
     /// The card that opens on a city, laid out like a title deed: a dark band with the city's name, its group's
     /// colour on a ribbon beside it and the close mark; under it, at the left, a large picture of the city as the
     /// choice would leave it (its little island, in the player's colour), and at the right a strip of small pictures,
-    /// one per level (bare land, one to four houses, the hotel) with a check on the ones the choice includes, then a
+    /// one per level (bare land, one to three houses, the hotel) with a check on the ones the choice includes, then a
     /// box with the rent the chosen level earns, the whole price and what is left of the player's money; at the foot
     /// one big button with the whole price. When buying, the land is picked and the player may add the houses the
     /// first visit allows; on an owned city the levels above its own are offered. A level the rules keep for later
     /// or the money does not reach is greyed, with the reason under its name. A factory city shows its works at each
-    /// stage instead, the one this purchase reaches marked. The host still validates every command the card sends.
+    /// stage instead, the one this purchase reaches marked. On a city that already has its three houses the card is the
+    /// hotel's own (<see cref="RenderHotel"/>; the owner's rule, 2026-11-21): the houses' card never offers the hotel,
+    /// it only shows it as what comes after the third house. The host still validates every command the card sends.
     /// </summary>
     public sealed class PropertyCard
     {
@@ -31,10 +33,17 @@ namespace Lazpoly.Presentation.Game
         public const float HeroHeight = 400f;
         public const float HeroRadius = 16f;
 
-        /// <summary>A level's tile in the strip, and the picture in it.</summary>
-        public const float TileWidth = 96f;
-        public const float PictureWidth = 84f;
-        public const float PictureHeight = 112f;
+        /// <summary>
+        /// A level's tile in the strip, and the picture in it: five tiles (the land, three houses, the hotel) fill the
+        /// row beside the large picture. They were six of 96 with pictures of 84 by 112 until the fourth house left the
+        /// rules (2026-11-21).
+        /// </summary>
+        public const float TileWidth = 116f;
+        public const float PictureWidth = 90f;
+        public const float PictureHeight = 120f;
+
+        /// <summary>A side of the hotel card's pair (the city now, the city with the hotel): the two fill the same row.</summary>
+        public const float StepWidth = 304f;
         public const float PictureRadius = 8f;
         public const float NoteHeight = 36f;
         public const int NoteFontSize = 13;
@@ -84,6 +93,11 @@ namespace Lazpoly.Presentation.Game
             int squareIndex = player.Position;
             SquareDefinition square = session.Board[squareIndex];
             PropertyChoice choice = PropertyChoice.For(session.Board, session.Rules, state, player, squareIndex, buying);
+            if (choice.OffersHotel)
+            {
+                RenderHotel(ui, choice, dismiss, done);
+                return;
+            }
 
             int visit = HashCode.Combine(state.TurnNumber, squareIndex, buying);
             if (visit != _visit)
@@ -132,6 +146,70 @@ namespace Lazpoly.Presentation.Game
             Text label = confirm.GetComponentInChildren<Text>();
             label.fontSize = ConfirmFontSize;
             UiBuilder.ShrinkToFit(label);
+        }
+
+        /// <summary>
+        /// The hotel's own card, on a city of the player's that stands at its three houses (the owner's rule, 2026-11-21):
+        /// the same deed, about one thing. The band says it is time for the hotel; the large picture is the hotel in the
+        /// player's colour; beside it the city as it stands and as it would, each with its rent, then the box with the
+        /// hotel's rent, its price and what is left of the player's money; at the foot "not now" and one big button that
+        /// builds it. The host still validates the command.
+        /// </summary>
+        public void RenderHotel(UiBuilder ui, PropertyChoice choice, Action dismiss, Action done)
+        {
+            if (choice == null) throw new ArgumentNullException(nameof(choice));
+            IGameSession session = _controller.Session;
+            int squareIndex = choice.SquareIndex;
+            SquareDefinition square = session.Board[squareIndex];
+            int holder = session.State.GetOwner(squareIndex);
+            int playerId = holder != GameState.NoOwner ? holder : session.State.CurrentPlayer.Id;
+            const int hotel = SquareDefinition.MaxBuildingLevel;
+            int cost = choice.CostOf(hotel);
+            bool affords = choice.CanPick(hotel);
+            Color groupColor = _controller.GroupColorOf(squareIndex);
+            Color owner = _controller.ColorOf(playerId);
+            _picked = hotel;
+
+            Band(ui, L(square.Name), L("Otel zamanı") + " · " + _controller.GroupNameOf(squareIndex), groupColor, _controller.GroupMarkOf(squareIndex), dismiss);
+
+            UiBuilder body = ui.Row(BodyGap, expand: false);
+            var sides = body.Container.GetComponent<HorizontalLayoutGroup>();
+            sides.childAlignment = TextAnchor.UpperLeft;
+            sides.childForceExpandHeight = true;
+
+            Color paper = Color.Lerp(groupColor, BoardView.PaperColor, BoardView.Pastel);
+            Hero(body, _preview?.Picture(hotel, paper, owner), LevelName(hotel), UiIcon.Home);
+
+            UiBuilder right = body.Column(10f);
+            right.Eyebrow(F($"{GameRules.MaxHouses} evin tamam: oteli kurmak ister misin?"), UiTheme.Muted);
+            UiBuilder strip = Strip(right);
+            RenderStep(strip, choice, choice.Level, L("Şimdi"), false, paper, owner);
+            RenderStep(strip, choice, hotel, L("Otelle"), true, paper, owner);
+            RenderSummary(right, choice, hotel, cost);
+            if (!affords) right.Notice(F($"Otel için {cost} gerekli, paran yetmiyor."));
+
+            UiBuilder actions = ui.Row();
+            UiBuilder.Fix(actions.Button(L("Şimdi Değil"), dismiss, height: ConfirmHeight), width: DismissWidth);
+            Button confirm = actions.Button(F($"Otel Kur ({cost})"), () =>
+            {
+                _controller.Submit(new BuildCommand(playerId, squareIndex, hotel - choice.Level));
+                done?.Invoke();
+            }, affords, UiButtonStyle.Primary, ConfirmHeight);
+            Text label = confirm.GetComponentInChildren<Text>();
+            label.fontSize = ConfirmFontSize;
+            UiBuilder.ShrinkToFit(label);
+        }
+
+        /// <summary>One side of the hotel card's pair: the city at <paramref name="level"/> under a word for when ("now", "with the hotel"), with its rent; the hotel's side is marked.</summary>
+        private void RenderStep(UiBuilder strip, PropertyChoice choice, int level, string when, bool reached, Color paper, Color owner)
+        {
+            UiBuilder tile = strip.Choice(null, reached);
+            UiBuilder.Fix(tile.Container.gameObject, width: StepWidth);
+            tile.Eyebrow(when, UiTheme.Muted, TextAnchor.MiddleCenter);
+            Small(tile, _preview?.Picture(level, paper, owner), UiIcon.Home, reached, false);
+            Text name = tile.Label(LevelName(level), UiTextStyle.Small, UiTheme.Text, TextAnchor.MiddleCenter);
+            name.font = UiTheme.BoldFont;
+            Note(tile, F($"Kira {choice.RentAt(level)}"), false);
         }
 
         /// <summary>
@@ -333,7 +411,7 @@ namespace Lazpoly.Presentation.Game
             line.Label(value, UiTextStyle.Body, ink, TextAnchor.MiddleRight).font = UiTheme.BoldFont;
         }
 
-        /// <summary>What a tile is called: the land, "house 1" to "house 4", the hotel.</summary>
+        /// <summary>What a tile is called: the land, "house 1" to "house 3", the hotel.</summary>
         public static string LevelName(int level)
         {
             if (level <= 0) return L("Arsa");

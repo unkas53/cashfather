@@ -20,8 +20,8 @@ namespace Lazpoly.App.Tests
         private static readonly BoardDefinition Board = new BoardDefinition(new[]
         {
             SquareDefinition.Start("Start"),
-            SquareDefinition.Property("A1", 100, 10, 1, 50, new[] { 50, 150, 400, 550, 700 }),
-            SquareDefinition.Property("A2", 100, 10, 1, 50, new[] { 50, 150, 400, 550, 700 }),
+            SquareDefinition.Property("A1", 100, 10, 1, 50, new[] { 50, 150, 400, 700 }),
+            SquareDefinition.Property("A2", 100, 10, 1, 50, new[] { 50, 150, 400, 700 }),
             SquareDefinition.Property("Solo", 150, 15, 0),
         });
 

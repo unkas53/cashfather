@@ -9,7 +9,7 @@ namespace Lazpoly.Presentation.Tests
 {
     public class BuildHintTests
     {
-        private static readonly int[] Rents = { 50, 150, 400, 550, 700 };
+        private static readonly int[] Rents = { 50, 150, 400, 700 };
 
         private static readonly BoardDefinition Board = new BoardDefinition(new[]
         {
@@ -53,12 +53,12 @@ namespace Lazpoly.Presentation.Tests
             StringAssert.StartsWith("Başlangıçtan geçene kadar her şehre tek ev", BuildHint.For(Board, state, 1, 1));
 
             Arrive(state, 1, 1, passedStart: true);
-            for (int level = 2; level <= 4; level++) GameStateReducer.Apply(state, new BuildingLevelChangedEvent(1, level));
-            Assert.AreEqual("Otel, dört evli şehre bir sonraki gelişinde kurulur.", BuildHint.For(Board, state, 1, 1));
+            for (int level = 2; level <= 3; level++) GameStateReducer.Apply(state, new BuildingLevelChangedEvent(1, level));
+            Assert.AreEqual("Otel, üç evli şehre bir sonraki gelişinde kurulur.", BuildHint.For(Board, state, 1, 1));
 
             Arrive(state, 1, 1);
             Assert.IsNull(BuildHint.For(Board, state, 1, 1), "A fresh visit allows the hotel.");
-            GameStateReducer.Apply(state, new BuildingLevelChangedEvent(1, 5));
+            GameStateReducer.Apply(state, new BuildingLevelChangedEvent(1, 4));
             Assert.AreEqual("En yüksek seviyede (otel).", BuildHint.For(Board, state, 1, 1));
         }
 

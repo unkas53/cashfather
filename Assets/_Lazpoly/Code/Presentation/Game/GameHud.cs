@@ -125,6 +125,7 @@ namespace Lazpoly.Presentation.Game
 
         /// <summary>A town whose takeover card the screen tour shows without the game asking (-1: none).</summary>
         private int _stagedTakeover = -1;
+        private int _stagedHotel = -1;
         private int _buildCardDismissed;
         private PropertyCard _propertyCard;
         private DebtSaleView _debtSale;
@@ -968,8 +969,8 @@ namespace Lazpoly.Presentation.Game
             bool jailOpen = !tradeOpen && !aiming && WaitsOnPersonHere(state, GamePhase.AwaitingJailDecision);
             SetLayer(_jailLayer, _jailWindow, jailOpen, revision);
             SetLayer(_diceLayer, _diceWindow, !tradeOpen && !aiming && WaitsOnPersonHere(state, GamePhase.AwaitingDiceChoice), revision);
-            bool buildOpen = !tradeOpen && !cityOpen && OffersBuildCard(state);
-            SetLayer(_buildLayer, _buildWindow, buildOpen, revision);
+            bool buildOpen = _stagedHotel >= 0 || (!tradeOpen && !cityOpen && OffersBuildCard(state));
+            SetLayer(_buildLayer, _buildWindow, buildOpen, HashCode.Combine(revision, _stagedHotel));
             if (_cards.Open && (tradeOpen || state == null || state.Phase == GamePhase.GameOver || _controller.EndReason.HasValue)) _cards.Open = false;
             SetLayer(_handLayer, _handWindow, _cards.Open && _cards.Owner(state) != null, HashCode.Combine(revision, _controller.IsBusy));
             SetLayer(_discardLayer, _discardWindow, _cards.Discarding(state), revision);
@@ -1533,10 +1534,20 @@ namespace Lazpoly.Presentation.Game
         /// <summary>
         /// The same card on an owned city: the levels above the one it stands at, what they cost
         /// and earn, "build" or "not now". Building sends one command for the picked level, built at once in one payment.
+        /// On a city with its three houses it is the hotel's own card (the owner's rule, 2026-11-21).
         /// </summary>
         private void RenderBuildCard(UiBuilder ui)
         {
             GameState state = _controller.Session.State;
+            if (_stagedHotel >= 0)
+            {
+                IGameSession session = _controller.Session;
+                PlayerState holder = state.FindPlayer(state.GetOwner(_stagedHotel)) ?? state.CurrentPlayer;
+                PropertyChoice staged = PropertyChoice.At(session.Board, session.Rules, state, holder, _stagedHotel, false, GameRules.MaxHouses, 1);
+                _propertyCard.RenderHotel(ui, staged, () => _stagedHotel = -1, () => _stagedHotel = -1);
+                return;
+            }
+
             _propertyCard.Render(ui, buying: false, dismiss: () => _buildCardDismissed = BuildVisitKey(state),
                 done: () => _buildCardDismissed = BuildVisitKey(state));
         }
@@ -1627,6 +1638,9 @@ namespace Lazpoly.Presentation.Game
 
         /// <summary>The takeover card's picture width, inside the window's margins.</summary>
         private const float TakeoverPictureWidth = 440f;
+
+        /// <summary>Shows the hotel's card for the town on <paramref name="square"/> as if it stood at its three houses and its owner had just come to it (the screen tour); -1 puts it away.</summary>
+        public void StageHotel(int square) => _stagedHotel = square;
 
         /// <summary>Shows the takeover card for <paramref name="square"/> as if the game asked (the screen tour); -1 puts it away.</summary>
         public void StageTakeover(int square) => _stagedTakeover = square;
@@ -2022,6 +2036,7 @@ namespace Lazpoly.Presentation.Game
             else if (_pauseLayer.activeSelf) ClosePause();
             else if (_logLayer.activeSelf) _logLayer.SetActive(false);
             else if (_tradeLayer.activeSelf) _trade.Close();
+            else if (_buildLayer.activeSelf && _stagedHotel >= 0) _stagedHotel = -1;
             else if (_buildLayer.activeSelf && state != null) _buildCardDismissed = BuildVisitKey(state);
             else if (_endLayer.activeSelf) _endDismissed = true;
         }

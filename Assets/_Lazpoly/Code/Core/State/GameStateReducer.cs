@@ -73,13 +73,20 @@ namespace Lazpoly.Core.State
                 {
                     // Announces the card; its effect arrives as the events that follow, or it goes into the hand.
                     PlayerState drawer = RequirePlayer(state, e.PlayerId);
+                    if (e.CardIndex < 0) throw new InvalidOperationException($"There is no card {e.CardIndex}.");
                     if (e.Kept) drawer.HandCards.Add(e.CardIndex);
+                    state.MarkDrawn(e.CardIndex);
+                    state.LastDrawnCard = e.CardIndex;
                     break;
                 }
+                case DeckShuffledEvent _:
+                    state.ShuffleDeck();
+                    break;
                 case CardPlayedEvent e:
                 {
                     PlayerState holder = RequirePlayer(state, e.PlayerId);
                     if (!holder.HandCards.Remove(e.CardIndex)) throw new InvalidOperationException($"Player {e.PlayerId} does not hold card {e.CardIndex}.");
+                    state.MarkDrawn(e.CardIndex); // Out of the hand, onto the played cards: not back in the deck before the next shuffle.
                     state.CardPlayedThisTurn = true;
                     if (e.Ride) state.RodeThisTurn = true;
                     break;
@@ -90,6 +97,7 @@ namespace Lazpoly.Core.State
                         throw new InvalidOperationException($"Player {e.PlayerId} does not hold card {e.CardIndex}.");
                     }
 
+                    state.MarkDrawn(e.CardIndex);
                     break;
                 case ShieldChangedEvent e:
                     RequireSquare(state, e.SquareIndex);

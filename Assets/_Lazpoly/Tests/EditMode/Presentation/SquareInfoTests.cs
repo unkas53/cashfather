@@ -12,7 +12,7 @@ namespace Lazpoly.Presentation.Tests
 {
     public class SquareInfoTests
     {
-        private static readonly int[] Rents = { 50, 150, 400, 550, 700 };
+        private static readonly int[] Rents = { 50, 150, 400, 700 };
 
         private static readonly BoardDefinition Board = new BoardDefinition(new[]
         {
@@ -42,7 +42,9 @@ namespace Lazpoly.Presentation.Tests
             Assert.AreEqual("8", ValueOf(info, "Rengin tamamı"));
             Assert.AreEqual("50", ValueOf(info, "1 ev"));
             Assert.AreEqual("700", ValueOf(info, "Otel"));
-            Assert.AreEqual(7, info.Rows.Count(row => row.Rent), "land, whole colour, four houses and the hotel make the rent table");
+            Assert.AreEqual("400", ValueOf(info, "3 ev"));
+            Assert.IsFalse(info.Rows.Any(row => row.Label == "4 ev"), "no fourth house (the owner's rule, 2026-11-21)");
+            Assert.AreEqual(6, info.Rows.Count(row => row.Rent), "land, whole colour, three houses and the hotel make the rent table");
             Assert.IsFalse(info.Rows.Single(row => row.Label == "Fiyat").Rent);
             Assert.AreEqual("50", ValueOf(info, "Ev maliyeti"));
             Assert.AreEqual("60", ValueOf(info, "Satış değeri"), "The bank pays the whole price (Faz 27).");

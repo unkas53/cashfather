@@ -28,8 +28,8 @@ namespace Lazpoly.Presentation.Tests
             var board = new BoardDefinition(new[]
             {
                 SquareDefinition.Start("Start"),
-                SquareDefinition.Property("Cheap", 60, 6, 1, 50, new[] { 30, 90, 240, 330, 420 }),
-                SquareDefinition.Property("Dear", 200, 20, 1, 50, new[] { 100, 300, 800, 1100, 1400 }),
+                SquareDefinition.Property("Cheap", 60, 6, 1, 50, new[] { 30, 90, 240, 420 }),
+                SquareDefinition.Property("Dear", 200, 20, 1, 50, new[] { 100, 300, 800, 1400 }),
                 SquareDefinition.Rest("Rest"),
                 SquareDefinition.Property("Solo", 100, 10, 0),
             });

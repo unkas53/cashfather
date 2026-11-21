@@ -98,8 +98,8 @@ namespace Lazpoly.Core.Tests
         private static BoardDefinition PercentTaxBoard() => new BoardDefinition(new[]
         {
             SquareDefinition.Start("Start"),
-            SquareDefinition.Property("A", 100, 10, 1, 50, new[] { 50, 150, 400, 550, 700 }),
-            SquareDefinition.Property("B", 100, 10, 1, 50, new[] { 50, 150, 400, 550, 700 }),
+            SquareDefinition.Property("A", 100, 10, 1, 50, new[] { 50, 150, 400, 700 }),
+            SquareDefinition.Property("B", 100, 10, 1, 50, new[] { 50, 150, 400, 700 }),
             SquareDefinition.PercentTax("Vergi", 10),
             SquareDefinition.Rest("Rest"),
         });

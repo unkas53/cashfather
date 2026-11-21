@@ -204,10 +204,24 @@ namespace Lazpoly.Core.Engine
         private static bool Holds(PlayerState player, int card) => card >= 0 && player.HandCards.Contains(card);
 
         /// <summary>
-        /// The cards a card square may give now: every card of the deck but those kept in someone's hand, which come back
-        /// only once played or let go (Faz 30).
+        /// The cards still in the deck, any of which a card square may give now: every card but those that have come since
+        /// the deck was last shuffled (the owner's rule, 2026-11-21: no card comes again before the deck runs out) and
+        /// those kept in someone's hand (Faz 30). Empty when the deck has run out: it is shuffled before the next draw
+        /// (<see cref="ShuffledDeck"/>).
         /// </summary>
         public static List<int> DrawableCards(BoardDefinition board, GameState state)
+        {
+            List<int> cards = ShuffledDeck(board, state, GameState.NoCard);
+            cards.RemoveAll(state.IsDrawn);
+            return cards;
+        }
+
+        /// <summary>
+        /// The deck as it stands once shuffled again: every card not kept in someone's hand, the played and passed ones
+        /// back in. The card that came last (<paramref name="lastDrawn"/>) is left for later when there are others, so
+        /// the same card never comes twice running across a shuffle.
+        /// </summary>
+        public static List<int> ShuffledDeck(BoardDefinition board, GameState state, int lastDrawn)
         {
             var held = new HashSet<int>();
             foreach (PlayerState player in state.Players) held.UnionWith(player.Hand);
@@ -217,6 +231,7 @@ namespace Lazpoly.Core.Engine
                 if (!held.Contains(i)) cards.Add(i);
             }
 
+            if (cards.Count > 1) cards.Remove(lastDrawn);
             return cards;
         }
 
@@ -376,7 +391,7 @@ namespace Lazpoly.Core.Engine
 
         /// <summary>
         /// Whether a renewal card may add a level to the player's town wherever they stand: the usual limits hold (one house
-        /// until the first pass of Start, the hotel only on four houses), only the visit is not needed.
+        /// until the first pass of Start, the hotel only on three houses), only the visit is not needed.
         /// </summary>
         public static bool CanRenew(BoardDefinition board, GameState state, PlayerState player, int squareIndex)
         {
@@ -640,6 +655,16 @@ namespace Lazpoly.Core.Engine
             return total;
         }
 
+        /// <summary>
+        /// What a bankrupt player's creditor gets out of the <paramref name="money"/> left once everything is sold: the
+        /// debt, or all of it when that is less. The rest stays with the bank.
+        /// </summary>
+        public static int BankruptcyPayment(int money, DebtState debt)
+        {
+            if (money <= 0) return 0;
+            return debt == null ? money : System.Math.Min(money, System.Math.Max(0, debt.Amount));
+        }
+
         /// <summary>What the bank pays for a property sold back with everything on it: its whole price plus each building at its sell-back value.</summary>
         public static int PropertySaleProceeds(BoardDefinition board, RulesConfig rules, GameState state, int squareIndex) =>
             board[squareIndex].SaleValue + state.GetBuildingLevel(squareIndex) * rules.SellbackValue(board[squareIndex].BuildingCost);
@@ -647,14 +672,14 @@ namespace Lazpoly.Core.Engine
         /// <summary>Houses a square may carry; the level above is the hotel.</summary>
         public const int MaxHouses = SquareDefinition.MaxBuildingLevel - 1;
 
-        /// <summary>Until a player has passed the start square, each of their towns takes a single house; afterwards up to four.</summary>
+        /// <summary>Until a player has passed the start square, each of their towns takes a single house; afterwards up to three.</summary>
         public const int FirstLapHouseLimit = 1;
 
         /// <summary>
         /// Building happens where the player arrived this turn: you own the town, you are on it, and
         /// Before their first pass of the start square a player builds one house per
-        /// town, afterwards up to four; the hotel needs a later visit to a town that already has its
-        /// four houses. Colour groups play no part.
+        /// town, afterwards up to three; the hotel needs a later visit to a town that already has its
+        /// three houses. Colour groups play no part.
         /// </summary>
         private static RejectionReason CanBuild(BoardDefinition board, GameState state, PlayerState player, int squareIndex, int levels)
         {
@@ -666,7 +691,7 @@ namespace Lazpoly.Core.Engine
 
         /// <summary>
         /// How many buildings the player may still add to this square on the current visit, money
-        /// aside: the houses up to the player's lap limit, or one (the hotel) on a four-house town they
+        /// aside: the houses up to the player's lap limit, or one (the hotel) on a three-house town they
         /// arrived at. Zero when they do not own it or have not arrived on it this turn.
         /// </summary>
         public static int BuildableNow(BoardDefinition board, GameState state, PlayerState player, int squareIndex)

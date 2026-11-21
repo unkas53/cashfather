@@ -410,9 +410,17 @@ namespace Lazpoly.Core.Engine
 
         private bool DrawCard(PlayerState player)
         {
-            // Cards kept in someone's hand are out of the deck until played (Faz 30).
+            // One deck: a card that came does not come again before the deck runs out (the owner's rule, 2026-11-21), and
+            // cards kept in someone's hand are out of it until played (Faz 30). The deck has no stored order: the next
+            // card is any of those left, which is what a shuffled deck deals.
             List<int> drawable = GameRules.DrawableCards(Board, State);
-            if (drawable.Count == 0) return false;
+            if (drawable.Count == 0)
+            {
+                drawable = GameRules.ShuffledDeck(Board, State, State.LastDrawnCard);
+                if (drawable.Count == 0) return false; // Every card is in a hand.
+                Emit(new DeckShuffledEvent());
+            }
+
             int index = drawable[_random.NextInt(0, drawable.Count)];
             CardDefinition card = Board.Cards[index];
             if (card.IsKept)
@@ -700,8 +708,10 @@ namespace Lazpoly.Core.Engine
         /// <summary>
         /// The player leaves the game. Everything they own is sold to the bank first (buildings at their
         /// sell-back value, each property at its sale value) and the squares go back to the bank, free to
-        /// buy again; then all the money they have goes to the creditor, however short of the debt it is
-        /// (the owner's rule, Faz 23: the creditor no longer inherits the properties).
+        /// buy again; then the creditor is paid what is owed, or all there is when that is less (the owner's
+        /// rule, Faz 23: the creditor no longer inherits the properties). What is left over after the debt
+        /// goes to the bank: a player who gives up while still able to pay hands the creditor the debt and no
+        /// more (the owner's rule, 2026-11-21).
         /// </summary>
         private void GoBankrupt(PlayerState player, int creditorId)
         {
@@ -727,8 +737,9 @@ namespace Lazpoly.Core.Engine
             if (player.Money > 0)
             {
                 int remaining = player.Money;
-                Emit(new MoneyChangedEvent(player.Id, -remaining, MoneyReason.Bankruptcy));
-                Credit(creditorId, remaining, MoneyReason.Bankruptcy);
+                int owed = GameRules.BankruptcyPayment(remaining, State.Debt);
+                Transfer(player.Id, creditorId, owed, MoneyReason.Bankruptcy);
+                if (remaining > owed) Emit(new MoneyChangedEvent(player.Id, owed - remaining, MoneyReason.Bankruptcy));
             }
 
             if (State.Debt != null) Emit(new DebtClearedEvent(player.Id));

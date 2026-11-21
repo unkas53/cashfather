@@ -6,7 +6,7 @@ namespace Lazpoly.Presentation.Models
 {
     /// <summary>
     /// The buildings of a town, one model per level: the empty plot with its sign (level 0: the owner's
-    /// marker on a bought town, and the card's picture of bare land), houses of one to four storeys and the
+    /// marker on a bought town, and the card's picture of bare land), houses of one to three storeys and the
     /// hotel. They come from Tools/Art/Models/Buildings through Tools/Art/make_buildings.py, which sorts each
     /// model's parts into <see cref="Slots"/> (walls, rails, glass, doors, roofs, the base, handles, window and
     /// door frames, the belts between the floors) and packs every slot whole and as a light copy (about 30% of the triangles). The whole models
@@ -25,8 +25,12 @@ namespace Lazpoly.Presentation.Models
     {
         public const string Resource = "Lazpoly/Models/buildings";
 
-        /// <summary>The model of each level, 0 (the plot) to 5 (the hotel).</summary>
-        public static readonly string[] Names = { "Plot_00", "House_01", "House_02", "House_03", "House_04", "Hotel_05" };
+        /// <summary>
+        /// The model of each level, 0 (the plot) to 4 (the hotel). The models keep the names their file gives them: the
+        /// file's fourth house (House_04, the flat-roofed block) is not used since the fourth house left the rules
+        /// (the owner's rule, 2026-11-21), so the hotel is still Hotel_05.
+        /// </summary>
+        public static readonly string[] Names = { "Plot_00", "House_01", "House_02", "House_03", "Hotel_05" };
 
         /// <summary>The light copy of a model is named with this after the model's name.</summary>
         public const string LowSuffix = "_Low";
@@ -164,7 +168,7 @@ namespace Lazpoly.Presentation.Models
         }
 
         /// <summary>
-        /// The building of <paramref name="level"/> (0 the plot, 1-4 houses, <see cref="SquareDefinition.MaxBuildingLevel"/>
+        /// The building of <paramref name="level"/> (0 the plot, 1-3 houses, <see cref="SquareDefinition.MaxBuildingLevel"/>
         /// the hotel) as an object with one part per slot, named after it, or null when the pack is missing.
         /// </summary>
         /// <param name="whole">True keeps the whole model whatever the graphics quality: the cards' pictures are taken of these.</param>

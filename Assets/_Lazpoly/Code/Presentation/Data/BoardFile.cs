@@ -88,7 +88,7 @@ namespace Lazpoly.Presentation.Data
         /// <summary>Cost of one house or the hotel; 0 or missing means the property takes no buildings.</summary>
         public int buildingCost;
 
-        /// <summary>Rent with 1-4 houses and with a hotel (5 values).</summary>
+        /// <summary>Rent with 1-3 houses and with a hotel (4 values).</summary>
         public int[] rents;
     }
 }

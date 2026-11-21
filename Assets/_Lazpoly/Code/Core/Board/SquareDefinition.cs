@@ -6,8 +6,11 @@ namespace Lazpoly.Core.Board
     /// <summary>Immutable description of one board square. Loaded from data, never changed during a game.</summary>
     public sealed class SquareDefinition
     {
-        /// <summary>Building levels a property can reach: four houses, then a hotel.</summary>
-        public const int MaxBuildingLevel = 5;
+        /// <summary>
+        /// Building levels a property can reach: three houses, then a hotel (the owner's rule, 2026-11-21: no fourth
+        /// house; it was four houses and a hotel, five levels, until then).
+        /// </summary>
+        public const int MaxBuildingLevel = 4;
 
         private static readonly int[] NoRents = new int[0];
         private readonly int[] _developedRents;

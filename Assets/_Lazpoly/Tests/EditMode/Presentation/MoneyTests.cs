@@ -529,6 +529,14 @@ namespace Lazpoly.Presentation.Tests
             Assert.AreEqual(GameState.NoOwner, GameSceneController.PaymentReceiver(tax, new GameEvent[] { new TurnStartedEvent(2), new MoneyChangedEvent(2, 100, MoneyReason.Tax) }));
             Assert.AreEqual(GameState.NoOwner, GameSceneController.PaymentReceiver(new MoneyChangedEvent(1, 200, MoneyReason.PassedStart), new GameEvent[0]));
 
+            // A player who gives up owing 20 with 250 in hand (the owner's rule, 2026-11-21): the 20 is seen going to the
+            // creditor, the other 230 to the bank.
+            var owed = new MoneyChangedEvent(1, -20, MoneyReason.Bankruptcy);
+            var paid = new MoneyChangedEvent(2, 20, MoneyReason.Bankruptcy);
+            var rest = new MoneyChangedEvent(1, -230, MoneyReason.Bankruptcy);
+            Assert.AreEqual(2, GameSceneController.PaymentReceiver(owed, new GameEvent[] { paid, rest, new PlayerBankruptedEvent(1, 2) }));
+            Assert.AreEqual(GameState.NoOwner, GameSceneController.PaymentReceiver(rest, new GameEvent[] { new PlayerBankruptedEvent(1, 2) }));
+
             var house = new MoneyChangedEvent(1, -50, MoneyReason.Building);
             var second = new MoneyChangedEvent(1, -50, MoneyReason.Building);
             var later = new MoneyChangedEvent(1, -50, MoneyReason.Building);
@@ -547,11 +555,11 @@ namespace Lazpoly.Presentation.Tests
             }), "a town bought and built on the same card is paid in one flight");
 
             var bought = new PropertyOwnerChangedEvent(3, GameState.NoOwner, 1);
-            Assert.AreEqual(4, GameSceneController.BuiltWithPurchase(bought, new GameEvent[] { new BuildingLevelChangedEvent(3, 4), new PhaseChangedEvent(GamePhase.TurnEnd) }),
-                "bought with four houses: they go up at once and the plot never shows");
+            Assert.AreEqual(3, GameSceneController.BuiltWithPurchase(bought, new GameEvent[] { new BuildingLevelChangedEvent(3, 3), new PhaseChangedEvent(GamePhase.TurnEnd) }),
+                "bought with three houses: they go up at once and the plot never shows");
             Assert.AreEqual(0, GameSceneController.BuiltWithPurchase(bought, new GameEvent[] { new PhaseChangedEvent(GamePhase.TurnEnd) }), "bought bare: the plot shows");
             Assert.AreEqual(0, GameSceneController.BuiltWithPurchase(bought, new GameEvent[] { new BuildingLevelChangedEvent(5, 2) }), "another town's houses");
-            Assert.AreEqual(0, GameSceneController.BuiltWithPurchase(new PropertyOwnerChangedEvent(3, 2, 1), new GameEvent[] { new BuildingLevelChangedEvent(3, 4) }), "a trade is not a purchase");
+            Assert.AreEqual(0, GameSceneController.BuiltWithPurchase(new PropertyOwnerChangedEvent(3, 2, 1), new GameEvent[] { new BuildingLevelChangedEvent(3, 3) }), "a trade is not a purchase");
         }
 
         [Test]

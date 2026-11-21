@@ -25,7 +25,7 @@ namespace Lazpoly.Presentation.Models
     /// </summary>
     public sealed class BuildingPreview
     {
-        /// <summary>Levels pictured: bare land, one to four houses, the hotel.</summary>
+        /// <summary>Levels pictured: bare land, one to three houses, the hotel.</summary>
         public const int Levels = SquareDefinition.MaxBuildingLevel + 1;
 
         /// <summary>A picture's size, and how many times larger (each way) the stage is drawn before it is halved into it.</summary>
@@ -212,7 +212,7 @@ namespace Lazpoly.Presentation.Models
             _mansion.SetActive(false);
         }
 
-        /// <summary>The level the stage shows now: 0 the empty plot, 1-4 the house's storeys, 5 the hotel.</summary>
+        /// <summary>The level the stage shows now: 0 the empty plot, 1-3 the house's storeys, 4 the hotel.</summary>
         public int Shown { get; private set; }
 
         /// <summary>Puts the pieces of <paramref name="level"/> on the tile and hides the rest, the factories too.</summary>

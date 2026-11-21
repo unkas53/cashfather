@@ -24,6 +24,7 @@ namespace Lazpoly.Core.State
         private readonly bool[] _shields;
         private readonly int[] _strikers;
         private readonly int[] _strikeTurns;
+        private readonly SortedSet<int> _drawnCards = new SortedSet<int>();
 
         private GameState(List<PlayerState> players, int squareCount)
         {
@@ -83,7 +84,7 @@ namespace Lazpoly.Core.State
         /// <summary>
         /// Buildings the current player added since they arrived on their square this turn, or
         /// <see cref="NotArrived"/> before they move. Building needs an arrival, and a hotel may only
-        /// go up on a visit that started with four houses already standing, so it needs zero here.
+        /// go up on a visit that started with its three houses already standing, so it needs zero here.
         /// </summary>
         public int BuiltThisVisit { get; internal set; } = NotArrived;
 
@@ -135,6 +136,27 @@ namespace Lazpoly.Core.State
         /// ends with this at 0.
         /// </summary>
         public int StrikeTurnsLeft(int squareIndex) => _strikeTurns[squareIndex];
+
+        /// <summary>No card has been drawn yet.</summary>
+        public const int NoCard = -1;
+
+        /// <summary>
+        /// The cards that have left the deck since it was last shuffled, as deck indexes in rising order: every card
+        /// drawn, and a kept card played or let go (the owner's rule, 2026-11-21: the cards are one deck, and a card does
+        /// not come again before the deck runs out). The deck's own order is not kept: the next card is picked from those
+        /// still in it when it is drawn, which is the same as dealing from a shuffled deck and leaves nothing to peek at.
+        /// </summary>
+        public IReadOnlyCollection<int> DrawnCards => _drawnCards;
+
+        /// <summary>Whether the card has left the deck since it was last shuffled.</summary>
+        public bool IsDrawn(int card) => _drawnCards.Contains(card);
+
+        /// <summary>The card drawn last, or <see cref="NoCard"/>: a newly shuffled deck does not begin with it.</summary>
+        public int LastDrawnCard { get; internal set; } = NoCard;
+
+        internal void MarkDrawn(int card) => _drawnCards.Add(card);
+
+        internal void ShuffleDeck() => _drawnCards.Clear();
 
         internal void SetStrike(int squareIndex, int strikerId, int turns)
         {
@@ -318,6 +340,17 @@ namespace Lazpoly.Core.State
                 }
             }
 
+            if (snapshot.DrawnCards != null)
+            {
+                foreach (int card in snapshot.DrawnCards)
+                {
+                    if (card < 0 || !state._drawnCards.Add(card)) throw new ArgumentException($"Snapshot lists drawn card {card} wrongly.", nameof(snapshot));
+                }
+            }
+
+            if (snapshot.LastDrawnCard < NoCard) throw new ArgumentException("Snapshot last card is out of range.", nameof(snapshot));
+            state.LastDrawnCard = snapshot.LastDrawnCard;
+
             if (snapshot.RentDue != null)
             {
                 DebtState due = snapshot.RentDue;
@@ -470,6 +503,10 @@ namespace Lazpoly.Core.State
                 Mix(_strikers[i]);
                 Mix(_strikeTurns[i]);
             }
+
+            Mix(_drawnCards.Count);
+            foreach (int card in _drawnCards) Mix(card);
+            Mix(LastDrawnCard);
 
             Mix(PendingTrade == null ? 0 : 1);
             if (PendingTrade != null)

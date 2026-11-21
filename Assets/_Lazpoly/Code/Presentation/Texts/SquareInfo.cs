@@ -204,7 +204,7 @@ namespace Lazpoly.Presentation.Texts
                 info.Notes.Add(F($"Kira grevi: {EventDescriber.NameOf(state, state.StrikerOf(squareIndex))} oyuncusunun {state.StrikeTurnsLeft(squareIndex)} sırası daha bitene kadar kira alınmaz."));
             }
             info.Repeat(GroupNote(board, state, square.GroupId));
-            if (square.IsDevelopable) info.Notes.Add(L("Sahibi şehre yeniden gelince ev kurar: başlangıçtan geçene kadar bir, sonra dörde kadar; dört evden sonra otel."));
+            if (square.IsDevelopable) info.Notes.Add(L("Sahibi şehre yeniden gelince ev kurar: başlangıçtan geçene kadar bir, sonra üçe kadar; üç evden sonra otel."));
             return info;
         }
 

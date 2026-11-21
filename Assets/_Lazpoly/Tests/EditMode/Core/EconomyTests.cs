@@ -21,8 +21,8 @@ namespace Lazpoly.Core.Tests
         private static BoardDefinition Board() => new BoardDefinition(new[]
         {
             SquareDefinition.Start("Start"),
-            SquareDefinition.Property("A1", 60, 10, 1, 50, new[] { 50, 150, 400, 550, 700 }),
-            SquareDefinition.Property("A2", 80, 12, 1, 50, new[] { 60, 180, 480, 660, 840 }),
+            SquareDefinition.Property("A1", 60, 10, 1, 50, new[] { 50, 150, 400, 700 }),
+            SquareDefinition.Property("A2", 80, 12, 1, 50, new[] { 60, 180, 480, 840 }),
             SquareDefinition.Rest("Rest"),
             SquareDefinition.Property("Solo", 100, 20, 0),
             SquareDefinition.Rest("Rest 2"),
@@ -61,8 +61,8 @@ namespace Lazpoly.Core.Tests
                 new BoardDefinition(new[] { SquareDefinition.Start("Start"), square });
 
             Assert.Throws<System.ArgumentException>(() => With(SquareDefinition.Property("X", 60, 10, 1, 50, new[] { 50, 150 })));
-            Assert.Throws<System.ArgumentException>(() => With(SquareDefinition.Property("X", 60, 10, 1, 50, new[] { 50, 40, 400, 550, 700 })));
-            Assert.Throws<System.ArgumentException>(() => With(SquareDefinition.Property("X", 60, 10, 0, 50, new[] { 50, 150, 400, 550, 700 })));
+            Assert.Throws<System.ArgumentException>(() => With(SquareDefinition.Property("X", 60, 10, 1, 50, new[] { 50, 40, 400, 700 })));
+            Assert.Throws<System.ArgumentException>(() => With(SquareDefinition.Property("X", 60, 10, 0, 50, new[] { 50, 150, 400, 700 })));
             Assert.Throws<System.ArgumentOutOfRangeException>(() => new Rules.RulesConfig(1000, 0, 6, 3, 2, 101));
             Assert.Throws<System.ArgumentOutOfRangeException>(() => new Rules.RulesConfig(1000, 0, 6, 3, 2, -1));
         }
@@ -100,7 +100,7 @@ namespace Lazpoly.Core.Tests
         }
 
         [Test]
-        public void OneHouseUntilTheFirstLapThenFour()
+        public void OneHouseUntilTheFirstLapThenThree()
         {
             var engine = NewGame(money: 5000);
             Give(engine, A1, Alice);
@@ -118,9 +118,10 @@ namespace Lazpoly.Core.Tests
 
             Stand(engine, Alice, A1, passedStart: true);
             Assert.AreEqual(1, engine.State.FindPlayer(Alice).Laps);
-            Assert.AreEqual(3, GameRules.BuildableNow(engine.Board, engine.State, engine.State.FindPlayer(Alice), A1));
-            for (int i = 0; i < 3; i++) Accept(engine, new BuildCommand(Alice, A1));
-            Assert.AreEqual(4, engine.State.GetBuildingLevel(A1));
+            Assert.AreEqual(3, GameRules.MaxHouses, "Three houses, then the hotel: no fourth house (the owner's rule, 2026-11-21).");
+            Assert.AreEqual(2, GameRules.BuildableNow(engine.Board, engine.State, engine.State.FindPlayer(Alice), A1));
+            for (int i = 0; i < 2; i++) Accept(engine, new BuildCommand(Alice, A1));
+            Assert.AreEqual(3, engine.State.GetBuildingLevel(A1));
             Assert.AreEqual(RejectionReason.CannotBuild, Reason(engine, new BuildCommand(Alice, A1)), "The hotel waits for a later visit.");
         }
 
@@ -133,16 +134,16 @@ namespace Lazpoly.Core.Tests
             int cost = engine.Board[A1].BuildingCost;
             int before = Money(engine, Alice);
             Assert.AreEqual(RejectionReason.CannotBuild, Reason(engine, new BuildCommand(Alice, A1, 0)));
-            Assert.AreEqual(RejectionReason.CannotBuild, Reason(engine, new BuildCommand(Alice, A1, 5)), "No more than the visit allows.");
+            Assert.AreEqual(RejectionReason.CannotBuild, Reason(engine, new BuildCommand(Alice, A1, 4)), "No more than the visit allows: three houses, never the hotel with them.");
 
-            CommandResult result = Accept(engine, new BuildCommand(Alice, A1, 3));
+            CommandResult result = Accept(engine, new BuildCommand(Alice, A1, 2));
             Assert.AreEqual(1, result.Events.OfType<BuildingLevelChangedEvent>().Count(), "one building step, not one per house");
-            Assert.AreEqual(3, result.Events.OfType<BuildingLevelChangedEvent>().Single().Level);
-            Assert.AreEqual(-3 * cost, result.Events.OfType<MoneyChangedEvent>().Single().Delta, "one payment for all three");
-            Assert.AreEqual(before - 3 * cost, Money(engine, Alice));
-            Assert.AreEqual(3, engine.State.GetBuildingLevel(A1));
-            Assert.AreEqual(3, engine.State.BuiltThisVisit);
-            Assert.AreEqual(1, GameRules.BuildableNow(engine.Board, engine.State, engine.State.FindPlayer(Alice), A1), "the fourth house is still allowed");
+            Assert.AreEqual(2, result.Events.OfType<BuildingLevelChangedEvent>().Single().Level);
+            Assert.AreEqual(-2 * cost, result.Events.OfType<MoneyChangedEvent>().Single().Delta, "one payment for both");
+            Assert.AreEqual(before - 2 * cost, Money(engine, Alice));
+            Assert.AreEqual(2, engine.State.GetBuildingLevel(A1));
+            Assert.AreEqual(2, engine.State.BuiltThisVisit);
+            Assert.AreEqual(1, GameRules.BuildableNow(engine.Board, engine.State, engine.State.FindPlayer(Alice), A1), "the third house is still allowed");
             Assert.AreEqual(RejectionReason.CannotBuild, Reason(engine, new BuildCommand(Alice, A1, 2)));
         }
 
@@ -156,17 +157,17 @@ namespace Lazpoly.Core.Tests
 
             Stand(engine, Alice, A1, passedStart: true);
             GameStateReducer.Apply(engine.State, new PhaseChangedEvent(GamePhase.AwaitingBuyDecision));
-            Assert.AreEqual(RejectionReason.CannotBuild, Reason(engine, new BuyPropertyCommand(Alice, 5)), "No hotel with the purchase.");
+            Assert.AreEqual(RejectionReason.CannotBuild, Reason(engine, new BuyPropertyCommand(Alice, 4)), "No hotel with the purchase.");
             Assert.AreEqual(RejectionReason.CannotBuild, Reason(engine, new BuyPropertyCommand(Alice, -1)));
             int price = engine.Board[A1].Price, cost = engine.Board[A1].BuildingCost;
             int before = Money(engine, Alice);
 
-            CommandResult result = Accept(engine, new BuyPropertyCommand(Alice, 4));
-            Assert.AreEqual(-(price + 4 * cost), result.Events.OfType<MoneyChangedEvent>().Single().Delta, "the land and the four houses in one payment");
-            Assert.AreEqual(4, result.Events.OfType<BuildingLevelChangedEvent>().Single().Level, "straight to the fourth house, no plot step");
-            Assert.AreEqual(before - price - 4 * cost, Money(engine, Alice));
+            CommandResult result = Accept(engine, new BuyPropertyCommand(Alice, 3));
+            Assert.AreEqual(-(price + 3 * cost), result.Events.OfType<MoneyChangedEvent>().Single().Delta, "the land and the three houses in one payment");
+            Assert.AreEqual(3, result.Events.OfType<BuildingLevelChangedEvent>().Single().Level, "straight to the third house, no plot step");
+            Assert.AreEqual(before - price - 3 * cost, Money(engine, Alice));
             Assert.AreEqual(Alice, engine.State.GetOwner(A1));
-            Assert.AreEqual(4, engine.State.GetBuildingLevel(A1));
+            Assert.AreEqual(3, engine.State.GetBuildingLevel(A1));
             Assert.AreEqual(0, GameRules.BuildableNow(engine.Board, engine.State, engine.State.FindPlayer(Alice), A1), "the hotel waits for a later visit");
         }
 
@@ -216,12 +217,12 @@ namespace Lazpoly.Core.Tests
         }
 
         [Test]
-        public void TheHotelNeedsAReturnVisitToAFourHouseTown()
+        public void TheHotelNeedsAReturnVisitToAThreeHouseTown()
         {
             var engine = NewGame(money: 5000);
             Give(engine, A1, Alice);
             Stand(engine, Alice, A1, passedStart: true);
-            for (int i = 0; i < 4; i++) Accept(engine, new BuildCommand(Alice, A1));
+            for (int i = 0; i < 3; i++) Accept(engine, new BuildCommand(Alice, A1));
             Assert.IsTrue(GameRules.NextIsHotel(engine.State, A1));
             Assert.AreEqual(0, GameRules.BuildableNow(engine.Board, engine.State, engine.State.FindPlayer(Alice), A1));
 
@@ -231,6 +232,7 @@ namespace Lazpoly.Core.Tests
             Assert.AreEqual(1, GameRules.BuildableNow(engine.Board, engine.State, engine.State.FindPlayer(Alice), A1));
             Accept(engine, new BuildCommand(Alice, A1));
 
+            Assert.AreEqual(4, engine.State.GetBuildingLevel(A1), "The hotel is the fourth level: three houses, then it.");
             Assert.AreEqual(SquareDefinition.MaxBuildingLevel, engine.State.GetBuildingLevel(A1));
             Assert.AreEqual(700, engine.CalculateRent(A1));
             Assert.AreEqual(RejectionReason.CannotBuild, Reason(engine, new BuildCommand(Alice, A1)));
@@ -423,7 +425,7 @@ namespace Lazpoly.Core.Tests
         }
 
         [Test]
-        public void BankruptcySellsEverythingToTheBankAndHandsTheMoneyToTheCreditor()
+        public void BankruptcySellsEverythingToTheBankAndPaysTheCreditorTheDebt()
         {
             GameEngine engine = AliceOwesCem();
             Give(engine, A1, Alice);
@@ -437,7 +439,7 @@ namespace Lazpoly.Core.Tests
 
             Assert.IsTrue(engine.State.FindPlayer(Alice).IsBankrupt);
             Assert.AreEqual(0, Money(engine, Alice));
-            Assert.AreEqual(1000 + 10 + 4 * 25 + 60 + 80, Money(engine, Cem), "Cash, the buildings' sell-back value and the towns' sale value.");
+            Assert.AreEqual(1000 + 20, Money(engine, Cem), "The rent owed, not the 250 she had after the sale (the owner's rule, 2026-11-21).");
             Assert.AreEqual(GameState.NoOwner, engine.State.GetOwner(A1), "The towns are sold to the bank, not handed over.");
             Assert.AreEqual(GameState.NoOwner, engine.State.GetOwner(A2));
             Assert.AreEqual(0, engine.State.GetBuildingLevel(A1));
@@ -483,8 +485,39 @@ namespace Lazpoly.Core.Tests
 
             Assert.AreEqual(GameState.NoOwner, engine.State.GetOwner(A1), "The creditor no longer inherits the towns (the owner's rule, Faz 23).");
             Assert.IsFalse(result.Events.OfType<PropertyOwnerChangedEvent>().Any(e => e.NewOwnerId == Cem));
-            Assert.AreEqual(1000 + 10 + 60, Money(engine, Cem), "All she had: 10 in hand and the 60 the bank paid for A1.");
+            Assert.AreEqual(1000 + 20, Money(engine, Cem), "The rent of 20, not the 70 she had: 10 in hand and the 60 the bank paid for A1.");
             Assert.AreEqual(0, Money(engine, Alice));
+        }
+
+        [Test]
+        public void GivingUpPaysTheCreditorTheDebtAndTheBankTheRest()
+        {
+            GameEngine engine = AliceOwesCem();
+            Give(engine, A1, Alice);
+            Give(engine, A2, Alice);
+
+            Accept(engine, new RollDiceCommand(Alice));
+            CommandResult result = Accept(engine, new DeclareBankruptcyCommand(Alice));
+
+            List<MoneyChangedEvent> bankruptcy = result.Events.OfType<MoneyChangedEvent>().Where(e => e.Reason == MoneyReason.Bankruptcy).ToList();
+            Assert.AreEqual(3, bankruptcy.Count, "The debt out, the debt in, the rest to the bank.");
+            Assert.AreEqual((Alice, -20), (bankruptcy[0].PlayerId, bankruptcy[0].Delta));
+            Assert.AreEqual((Cem, 20), (bankruptcy[1].PlayerId, bankruptcy[1].Delta), "Right after the payment, so the money is seen going to Cem.");
+            Assert.AreEqual((Alice, -(10 + 60 + 80 - 20)), (bankruptcy[2].PlayerId, bankruptcy[2].Delta));
+            Assert.AreEqual(1000 + 20, Money(engine, Cem));
+            Assert.AreEqual(1000, Money(engine, Bob), "Nobody else gains by it.");
+            Assert.AreEqual(0, Money(engine, Alice));
+        }
+
+        [Test]
+        public void ACreditorGetsNoMoreThanIsOwedAndNoMoreThanThereIs()
+        {
+            var debt = new DebtState(Alice, Cem, 20, MoneyReason.Rent);
+            Assert.AreEqual(20, GameRules.BankruptcyPayment(250, debt));
+            Assert.AreEqual(20, GameRules.BankruptcyPayment(20, debt));
+            Assert.AreEqual(10, GameRules.BankruptcyPayment(10, debt), "Short of the debt: all there is.");
+            Assert.AreEqual(0, GameRules.BankruptcyPayment(0, debt));
+            Assert.AreEqual(70, GameRules.BankruptcyPayment(70, null));
         }
 
         // ---- Automatic sale ----

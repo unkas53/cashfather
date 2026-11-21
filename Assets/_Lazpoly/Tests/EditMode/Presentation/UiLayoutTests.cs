@@ -2,6 +2,7 @@ using Lazpoly.Infra.Settings;
 using Lazpoly.Presentation.UI;
 using NUnit.Framework;
 using UnityEngine;
+using ResortParts = Lazpoly.Presentation.Models.ResortParts;
 using BuildingPreview = Lazpoly.Presentation.Models.BuildingPreview;
 using PropertyCard = Lazpoly.Presentation.Game.PropertyCard;
 using SquareCard = Lazpoly.Presentation.Game.SquareCard;
@@ -126,12 +127,18 @@ namespace Lazpoly.Presentation.Tests
         }
 
         [Test]
-        public void ThePropertyCardHoldsSixTilesInARowAndFitsEveryScreen()
+        public void ThePropertyCardHoldsItsTilesInARowAndFitsEveryScreen()
         {
+            Assert.AreEqual(5, BuildingPreview.Levels, "the land, three houses and the hotel (the owner's rule, 2026-11-21: no fourth house)");
             float tiles = BuildingPreview.Levels * PropertyCard.TileWidth + (BuildingPreview.Levels - 1) * PropertyCard.StripGap;
             float inside = UiLayout.PropertyCardWidth - 2f * (UiTheme.Padding + 8f);
             Assert.LessOrEqual(PropertyCard.HeroWidth + PropertyCard.BodyGap + tiles, inside, "the picture and the tiles overflow the window's padding");
             Assert.GreaterOrEqual(PropertyCard.HeroWidth + PropertyCard.BodyGap + tiles, inside - 8f, "and fill it");
+            // The hotel's own card: the city now and the city with the hotel, side by side in the same row.
+            float pair = 2f * PropertyCard.StepWidth + PropertyCard.StripGap;
+            Assert.LessOrEqual(PropertyCard.HeroWidth + PropertyCard.BodyGap + pair, inside, "the hotel card's pair overflows the window's padding");
+            Assert.GreaterOrEqual(PropertyCard.HeroWidth + PropertyCard.BodyGap + pair, inside - 8f, "and fills it");
+            Assert.LessOrEqual(ResortParts.Stages * PropertyCard.TileWidth + (ResortParts.Stages - 1) * PropertyCard.StripGap, tiles, "a factory city's stages fit the same row");
             Assert.LessOrEqual(PropertyCard.PictureWidth + 12f, PropertyCard.TileWidth, "the picture overflows its tile");
             Assert.GreaterOrEqual(PropertyCard.NoteHeight, 2f * PropertyCard.NoteFontSize * 1.37f, "a tile's note has room for two lines of its type");
             // Every picture on the cards keeps the upright shape the pictures are drawn in, so nothing is squeezed.

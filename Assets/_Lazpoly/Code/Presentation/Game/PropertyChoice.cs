@@ -49,11 +49,23 @@ namespace Lazpoly.Presentation.Game
             if (board == null) throw new ArgumentNullException(nameof(board));
             if (state == null) throw new ArgumentNullException(nameof(state));
             if (player == null) throw new ArgumentNullException(nameof(player));
-            SquareDefinition square = board[squareIndex];
-            int level = state.GetBuildingLevel(squareIndex);
             int allowed = buying
                 ? GameRules.BuildableAfterPurchase(board, player, squareIndex)
                 : GameRules.BuildableNow(board, state, player, squareIndex);
+            return At(board, rules, state, player, squareIndex, buying, state.GetBuildingLevel(squareIndex), allowed);
+        }
+
+        /// <summary>
+        /// The card as it would be with the square standing at <paramref name="level"/> and <paramref name="allowed"/>
+        /// more buildings open on this visit: what <see cref="For"/> reads from the table, given by hand (the screen tour
+        /// shows the hotel's card this way without playing a town up to three houses).
+        /// </summary>
+        public static PropertyChoice At(BoardDefinition board, RulesConfig rules, GameState state, PlayerState player, int squareIndex, bool buying, int level, int allowed)
+        {
+            if (board == null) throw new ArgumentNullException(nameof(board));
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (player == null) throw new ArgumentNullException(nameof(player));
+            SquareDefinition square = board[squareIndex];
             if (square.IsResort)
             {
                 // A resort's rent is its base times the resorts its owner holds, this one counted when buying it.
@@ -92,7 +104,7 @@ namespace Lazpoly.Presentation.Game
         /// <summary>True on the purchase card: the land is not owned yet and its price comes first.</summary>
         public bool Buying { get; }
 
-        /// <summary>The level the square stands at now: 0 bare land, 1-4 houses, 5 the hotel.</summary>
+        /// <summary>The level the square stands at now: 0 bare land, 1-3 houses, 4 the hotel.</summary>
         public int Level { get; }
 
         /// <summary>How many buildings the rules allow on this visit, money aside.</summary>
@@ -113,6 +125,12 @@ namespace Lazpoly.Presentation.Game
 
         /// <summary>True when the player would own the whole colour group, which raises the bare land's rent.</summary>
         public bool FullGroup { get; }
+
+        /// <summary>
+        /// True when the card is the hotel's own (the owner's rule, 2026-11-21: "a separate card when you come to a town
+        /// with three houses"): the player's town stands at its last house, so the one thing left to build is the hotel.
+        /// </summary>
+        public bool OffersHotel => !Buying && !Resort && Developable && Level == GameRules.MaxHouses;
 
         /// <summary>The highest level the player can pick now.</summary>
         public int Top => Level + Most;
@@ -149,7 +167,7 @@ namespace Lazpoly.Presentation.Game
             if (level - Level > Allowed)
             {
                 if (level >= SquareDefinition.MaxBuildingLevel)
-                    return Level == GameRules.MaxHouses ? L("Yeniden gelince") : L("4 evden sonra");
+                    return Level == GameRules.MaxHouses ? L("Yeniden gelince") : F($"{GameRules.MaxHouses} evden sonra");
                 return Laps == 0 ? L("İlk turdan sonra") : F($"Bu gelişte en çok {Allowed}");
             }
 

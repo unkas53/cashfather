@@ -46,7 +46,7 @@ namespace Lazpoly.Presentation.Tests
             GameState state = State();
 
             Assert.AreEqual("Lale Sokağı: 2 ev", EventDescriber.Describe(new BuildingLevelChangedEvent(1, 2), state, Board));
-            Assert.AreEqual("Lale Sokağı: otel", EventDescriber.Describe(new BuildingLevelChangedEvent(1, 5), state, Board));
+            Assert.AreEqual("Lale Sokağı: otel", EventDescriber.Describe(new BuildingLevelChangedEvent(1, 4), state, Board));
             Assert.AreEqual("Ayşe: +30 (mülk satışı)", EventDescriber.Describe(new MoneyChangedEvent(1, 30, MoneyReason.PropertySale), state, Board));
             Assert.AreEqual("Ayşe: -760K (kira)", EventDescriber.Describe(new MoneyChangedEvent(1, -760000, MoneyReason.Rent), state, Board),
                 "money is written short in the log too (Faz 27)");
@@ -54,6 +54,8 @@ namespace Lazpoly.Presentation.Tests
             Assert.AreEqual("Ayşe, Can oyuncusuna takas teklif etti",
                 EventDescriber.Describe(new TradeProposedEvent(new TradeOffer(1, 2, 50, 0, new int[0], new[] { 1 })), state, Board));
             Assert.AreEqual("Takas reddedildi", EventDescriber.Describe(new TradeResolvedEvent(TradeOutcome.Rejected), state, Board));
+            Assert.AreEqual("Şans destesi bitti, kartlar yeniden karıldı", EventDescriber.Describe(new DeckShuffledEvent(), state, Board),
+                "the log says when the deck starts over (the owner's rule, 2026-11-21: one deck)");
             Assert.AreEqual("Ayşe 200 ödeyemiyor (kira): para bulmalı ya da iflas etmeli",
                 EventDescriber.Describe(new DebtIncurredEvent(1, 2, 200, MoneyReason.Rent), state, Board));
         }

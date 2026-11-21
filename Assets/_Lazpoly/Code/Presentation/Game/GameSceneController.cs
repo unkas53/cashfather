@@ -1129,9 +1129,9 @@ namespace Lazpoly.Presentation.Game
         }
 
         /// <summary>
-        /// Shows the buildings in every player's colour (the owner's wishes, 2026-11-21: the roof and the belts between
-        /// the floors in the player's colour, white walls, black window frames, no plot under a house), on five towns nobody
-        /// owns: a house of each height and a hotel, each the next player's ("bina-renkleri").
+        /// Shows the buildings in every player's colour (the owner's wish, 2026-11-21: the roof in the player's colour,
+        /// the rest in colours that suit the table), on five towns nobody owns: a house of each height and a hotel,
+        /// each the next player's ("bina-renkleri").
         /// </summary>
         private IEnumerator TourColours()
         {

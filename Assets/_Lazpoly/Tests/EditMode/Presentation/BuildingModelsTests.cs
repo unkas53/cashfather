@@ -42,11 +42,8 @@ namespace Lazpoly.Presentation.Tests
             return bounds;
         }
 
-        /// <summary>
-        /// The Blender file's triangles per model (all its slots, less the few with no area, and for the houses less
-        /// the slab and kerbs only the plot keeps): the whole copies keep every one.
-        /// </summary>
-        private static readonly int[] SourceTriangles = { 2060, 6471, 13448, 19068, 24880, 50774 };
+        /// <summary>The Blender file's triangles per model (all its slots, less the few with no area): the whole copies keep every one.</summary>
+        private static readonly int[] SourceTriangles = { 2060, 7223, 14200, 19820, 25632, 51526 };
 
         [Test]
         public void ThePackHoldsEachLevelWholeAndAsALightCopy()
@@ -81,25 +78,11 @@ namespace Lazpoly.Presentation.Tests
                 {
                     Bounds bounds = BoundsOf(parts);
                     string name = parts[0].Name;
-                    // A house's door frame goes a hair into the ground.
-                    Assert.That(bounds.min.y, Is.EqualTo(0f).Within(0.01f), $"{name} stands on the ground");
+                    Assert.That(bounds.min.y, Is.EqualTo(0f).Within(0.005f), $"{name} stands on the ground");
+                    Assert.That(bounds.size.x, Is.EqualTo(BuildingModels.Width).Within(0.02f), $"{name} footprint along the front");
+                    Assert.That(bounds.size.z, Is.EqualTo(BuildingModels.Depth).Within(0.02f), $"{name} footprint front to back");
                     Assert.That(bounds.center.x, Is.EqualTo(0f).Within(0.01f));
-                    if (level == 0)
-                    {
-                        Assert.That(bounds.size.x, Is.EqualTo(BuildingModels.Width).Within(0.02f), $"{name} footprint along the front");
-                        Assert.That(bounds.size.z, Is.EqualTo(BuildingModels.Depth).Within(0.02f), $"{name} footprint front to back");
-                        Assert.That(bounds.center.z, Is.EqualTo(0f).Within(0.01f));
-                        continue;
-                    }
-
-                    // A house takes the plot's place and has no slab under it (the owner's wish, 2026-11-21): it is
-                    // smaller than the plot and stands inside its footprint.
-                    Assert.Less(bounds.size.x, BuildingModels.Width + 0.02f, $"{name} is wider than the plot");
-                    Assert.Less(bounds.size.z, BuildingModels.Depth - 0.05f, $"{name} still stands on a slab as deep as the plot");
-                    Assert.LessOrEqual(Mathf.Abs(bounds.min.x), BuildingModels.Width / 2f + 0.01f, $"{name} is off the plot");
-                    Assert.LessOrEqual(bounds.max.x, BuildingModels.Width / 2f + 0.01f, $"{name} is off the plot");
-                    Assert.GreaterOrEqual(bounds.min.z, -BuildingModels.Depth / 2f, $"{name} is off the plot");
-                    Assert.LessOrEqual(bounds.max.z, BuildingModels.Depth / 2f, $"{name} is off the plot");
+                    Assert.That(bounds.center.z, Is.EqualTo(0f).Within(0.01f));
                 }
 
                 if (level > 0)
@@ -123,16 +106,13 @@ namespace Lazpoly.Presentation.Tests
                 Assert.Less(worst, 0.01f, $"{mesh.Name} normals are unit length");
             }
 
-            // Each house stands taller than the one below it (the plot's sign is as tall as a cottage, to be read).
             float lastHeight = -1f;
-            for (int level = 1; level < BuildingModels.Names.Length; level++)
+            foreach (string name in BuildingModels.Names)
             {
-                float top = BoundsOf(PartsOf(pack, BuildingModels.Names[level])).max.y;
-                Assert.Greater(top, lastHeight, $"{BuildingModels.Names[level]} stands taller than the level below");
+                float top = BoundsOf(PartsOf(pack, name)).max.y;
+                Assert.Greater(top, lastHeight, $"{name} stands taller than the level below");
                 lastHeight = top;
             }
-
-            Assert.Less(BoundsOf(PartsOf(pack, BuildingModels.Names[0])).max.y, BoundsOf(PartsOf(pack, BuildingModels.Names[2])).max.y, "the plot's sign is lower than a two-storey house");
         }
 
         [Test]
@@ -187,18 +167,25 @@ namespace Lazpoly.Presentation.Tests
                     }
                 }
 
-                // The owner's wishes (2026-11-21): the roof and the belts between the floors in the player's colour, the
-                // walls white, the frames of the windows black (not their glass), the plot's slab white.
+                // The owner's one wish (2026-11-21): the roof in the player's colour. The rest suits the table: light
+                // warm walls, frames and belts lighter still (black frames were turned down), glass darker than the walls
+                // so a window reads, and a warm slab under the house that is neither the walls nor concrete grey.
                 Color walls = BuildingModels.SlotColors[BuildingModels.WallSlot];
                 Color glass = BuildingModels.SlotColors[BuildingModels.GlassSlot];
                 Color frames = BuildingModels.SlotColors[BuildingModels.FrameSlot];
+                Color belts = BuildingModels.SlotColors[BuildingModels.BeltSlot];
                 Color ground = BuildingModels.SlotColors[BuildingModels.BaseSlot];
-                Assert.Greater(Mathf.Min(walls.r, walls.g, walls.b), 0.88f, "the walls are white");
-                Assert.Less(walls.maxColorComponent - Mathf.Min(walls.r, walls.g, walls.b), 0.04f, "the walls have no tint");
-                Assert.Less(frames.maxColorComponent, 0.1f, "the window frames are black");
-                Assert.Greater(glass.maxColorComponent, 0.6f, "the glass is light behind its black frame");
-                Assert.Greater(Mathf.Min(ground.r, ground.g, ground.b), 0.88f, "the plot's slab is white");
-                Assert.Less(ground.maxColorComponent - Mathf.Min(ground.r, ground.g, ground.b), 0.04f, "the plot's slab has no tint");
+                Assert.Greater(Mathf.Min(walls.r, walls.g, walls.b), 0.8f, "the walls are light");
+                Assert.LessOrEqual(walls.maxColorComponent, 0.92f, "the walls burn out in the table's light");
+                Assert.IsTrue(walls.r >= walls.g && walls.g >= walls.b, "the walls are a warm white");
+                Assert.Greater(Mathf.Min(frames.r, frames.g, frames.b), walls.maxColorComponent - 0.02f, "the window frames are lighter than the walls");
+                Assert.AreEqual(frames, belts, "the belts between the floors are the frames' colour");
+                Assert.Less(glass.grayscale, walls.grayscale - 0.25f, "the glass is dark enough against the walls for a window to read");
+                Assert.Greater(glass.grayscale, 0.3f, "the glass is black");
+                Assert.Greater(glass.b, glass.r, "the glass is blue");
+                Assert.Less(ground.grayscale, walls.grayscale - 0.05f, "the slab is told from the walls");
+                Assert.Greater(ground.grayscale, 0.65f, "the slab is light");
+                Assert.Greater(ground.r - ground.b, 0.08f, "the slab is warm stone, not concrete grey");
                 Assert.AreEqual("Glass", BuildingModels.Slots[BuildingModels.GlassSlot]);
                 Assert.AreEqual("Roof", BuildingModels.Slots[BuildingModels.RoofSlot]);
                 Assert.AreEqual("Base", BuildingModels.Slots[BuildingModels.BaseSlot]);
@@ -209,25 +196,23 @@ namespace Lazpoly.Presentation.Tests
                 var owner = new Color(0.9f, 0.2f, 0.2f);
                 Assert.AreEqual(owner, BuildingModels.RoofColor(owner), "the roof is the player's colour as it is");
                 Assert.AreEqual(BuildingModels.SlotColors[BuildingModels.RoofSlot], BuildingModels.RoofColor(null), "nobody's roof is terracotta");
-                Assert.AreEqual(owner, BuildingModels.BeltColor(owner), "the belts are the player's colour as it is");
-                Assert.AreEqual(BuildingModels.SlotColors[BuildingModels.BeltSlot], BuildingModels.BeltColor(null), "nobody's belts are cream");
 
                 // Every house and the hotel has a roof to wear it (the flat-roofed ones their slabs), windows in frames
-                // and steps to its door; all but the one-storey house have belts between their floors. Owned, only the
-                // roof and the belts change.
+                // and a slab to stand on; all but the one-storey house have belts between their floors. Owned, only the
+                // roof changes.
                 for (int level = 1; level <= SquareDefinition.MaxBuildingLevel; level++)
                 {
                     GameObject house = BuildingModels.Create(level, $"Owned {level}", root.transform);
                     Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.RoofSlot]), $"level {level} has a roof");
                     Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.GlassSlot]), $"level {level} has windows");
                     Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.FrameSlot]), $"level {level}'s windows have frames");
-                    Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.BaseSlot]), $"level {level} has steps to its door");
+                    Assert.IsNotNull(house.transform.Find(BuildingModels.Slots[BuildingModels.BaseSlot]), $"level {level} stands on its ground");
                     Assert.AreEqual(level > 1, house.transform.Find(BuildingModels.Slots[BuildingModels.BeltSlot]) != null, $"level {level}: belts between floors");
                     BuildingModels.PaintOwner(house, owner);
                     foreach (Transform part in house.transform)
                     {
                         int slot = Array.IndexOf(BuildingModels.Slots, part.name);
-                        Color expected = slot == BuildingModels.RoofSlot || slot == BuildingModels.BeltSlot ? owner : BuildingModels.SlotColors[slot];
+                        Color expected = slot == BuildingModels.RoofSlot ? owner : BuildingModels.SlotColors[slot];
                         Assert.That(Vector4.Distance(expected, part.GetComponent<Renderer>().sharedMaterial.color), Is.LessThan(1e-4f), $"level {level} {part.name}");
                     }
 
@@ -248,7 +233,7 @@ namespace Lazpoly.Presentation.Tests
                 Assert.That(Vector4.Distance(BuildingModels.PlotColor(owner), plot.transform.GetChild(0).GetComponent<Renderer>().sharedMaterial.color),
                     Is.LessThan(1e-4f), "the plot's paving is the owner's");
                 BuildingModels.PaintOwner(plot, null);
-                Assert.That(Vector4.Distance(walls, plot.transform.GetChild(0).GetComponent<Renderer>().sharedMaterial.color), Is.LessThan(1e-4f), "nobody's plot is white");
+                Assert.That(Vector4.Distance(walls, plot.transform.GetChild(0).GetComponent<Renderer>().sharedMaterial.color), Is.LessThan(1e-4f), "nobody's plot is the walls' ivory");
 
                 Assert.IsNull(BuildingModels.Create(SquareDefinition.MaxBuildingLevel + 1, "Too high", root.transform));
 

@@ -11,12 +11,13 @@ namespace Lazpoly.Presentation.Models
     /// model's parts into <see cref="Slots"/> (walls, rails, glass, doors, roofs, the base, handles, window and
     /// door frames, the belts between the floors) and packs every slot whole and as a light copy (about 30% of the triangles). The whole models
     /// stand at the High graphics quality and the light ones at Medium and Low (<see cref="SetFullDetail"/>,
-    /// switched in place). The plot is a white slab of <see cref="Width"/> x <see cref="Depth"/>; a house takes its
-    /// place and stands on the tile itself, inside that footprint, with no slab under it (the owner's wish,
-    /// 2026-11-21). Each has its pivot in the middle of the plot's ground and its front towards +Z. A building is
-    /// one part per slot: the roof and the belts between the floors take the owner's colour, the walls are white
-    /// and the frames of the windows black (the owner's wishes, 2026-11-21; <see cref="PaintOwner"/>), and the rest
-    /// keep fixed colours. The plot has no roof: its paving and its sign's face wear the owner's colour.
+    /// switched in place). Each stands on a <see cref="Width"/> x <see cref="Depth"/> footprint with its pivot
+    /// in the middle of the ground and its front towards +Z. A building is one part per slot. The roof takes the
+    /// owner's colour (<see cref="PaintOwner"/>): the owner's one wish for the buildings' colours, 2026-11-21. The
+    /// rest was left to be made to suit the table, after white walls with black frames, a concrete slab and houses
+    /// with no slab under them were each tried and turned down: ivory walls with white frames, rails and belts
+    /// between the floors, slate blue glass, and a slab of light sandstone, so the roof is the one strong colour
+    /// on a building. The plot has no roof: its paving and its sign's face wear the owner's colour.
     /// When the pack is missing the callers fall back to the drawn pieces of <see cref="BuildingParts"/>.
     /// </summary>
     public static class BuildingModels
@@ -36,9 +37,9 @@ namespace Lazpoly.Presentation.Models
         public static readonly string[] Slots = { "Wall", "Trim", "Glass", "Door", "Roof", "Base", "Metal", "Frame", "Belt" };
 
         /// <summary>
-        /// The walls, white on every building; the slots painted in the owner's colour: the roof (a model without
-        /// one, the plot, wears it on its walls) and the belts between the floors; the plot's slab (and a house's
-        /// steps); and the frames of windows and doors.
+        /// The walls, ivory on every building; the slot painted in the owner's colour: the roof (a model without
+        /// one, the plot, wears it on its walls); the slab a building stands on; the frames of its windows and
+        /// doors, and the belts between its floors.
         /// </summary>
         public const int WallSlot = 0;
         public const int GlassSlot = 2;
@@ -47,18 +48,18 @@ namespace Lazpoly.Presentation.Models
         public const int FrameSlot = 7;
         public const int BeltSlot = 8;
 
-        /// <summary>The colour of each slot; the roofs' and the belts' are the unowned colours.</summary>
+        /// <summary>The colour of each slot; the roofs' is the unowned colour.</summary>
         public static readonly Color[] SlotColors =
         {
-            new Color(0.93f, 0.93f, 0.91f), // Walls: white.
-            new Color(0.95f, 0.93f, 0.89f), // Balcony rails, parapets, the hotel's columns, the sign's board: cream.
-            new Color(0.56f, 0.77f, 0.91f), // Glass (the whole of a window's recess): light blue.
+            new Color(0.91f, 0.88f, 0.82f), // Walls: ivory.
+            new Color(0.97f, 0.95f, 0.91f), // Balcony rails, parapets, the hotel's columns, the sign's board: white.
+            new Color(0.40f, 0.54f, 0.68f), // Glass (the whole of a window's recess): slate blue.
             new Color(0.36f, 0.23f, 0.16f), // Doors and the sign's posts: dark wood.
             new Color(0.71f, 0.32f, 0.23f), // Roofs, chimneys, canopies, the slabs of flat roofs: terracotta until owned.
-            new Color(0.93f, 0.93f, 0.91f), // The plot's slab and kerbs, a house's steps and balcony slabs: white.
+            new Color(0.82f, 0.77f, 0.68f), // The slab a building stands on, its kerbs and steps, balcony slabs: light sandstone.
             new Color(0.83f, 0.65f, 0.23f), // Handles and the hotel's letters: brass.
-            new Color(0.06f, 0.065f, 0.08f), // The frames of windows and doors, and the bars across the panes: black.
-            new Color(0.95f, 0.93f, 0.89f), // The belts between the floors: cream until owned.
+            new Color(0.97f, 0.95f, 0.91f), // The frames of windows and doors, and the bars across the panes: white.
+            new Color(0.97f, 0.95f, 0.91f), // The belts between the floors: white.
         };
 
         /// <summary>How shiny each slot is; glass and brass catch the light.</summary>
@@ -67,20 +68,17 @@ namespace Lazpoly.Presentation.Models
         /// <summary>How far towards white the owner's colour is taken on the plot's paving and sign.</summary>
         public const float OwnerLightening = 0.15f;
 
-        /// <summary>The plot's footprint, along the front (x) and from front to back (z), in model units; the houses stand inside it.</summary>
+        /// <summary>The footprint, along the front (x) and from front to back (z), in model units.</summary>
         public const float Width = 0.9f;
         public const float Depth = 0.72f;
 
-        /// <summary>A building's walls: white, whoever owns it.</summary>
+        /// <summary>A building's walls: ivory, whoever owns it.</summary>
         public static Color WallColor => SlotColors[WallSlot];
 
         /// <summary>A building's roof for an owner: the owner's own colour, or terracotta for nobody's.</summary>
         public static Color RoofColor(Color? owner) => owner ?? SlotColors[RoofSlot];
 
-        /// <summary>The belts between a building's floors for an owner: the owner's own colour, or cream for nobody's.</summary>
-        public static Color BeltColor(Color? owner) => owner ?? SlotColors[BeltSlot];
-
-        /// <summary>The plot's paving and sign for an owner (lightened a little), or white for nobody's.</summary>
+        /// <summary>The plot's paving and sign for an owner (lightened a little), or ivory for nobody's.</summary>
         public static Color PlotColor(Color? owner) =>
             owner.HasValue ? Color.Lerp(owner.Value, Color.white, OwnerLightening) : SlotColors[WallSlot];
 
@@ -196,9 +194,9 @@ namespace Lazpoly.Presentation.Models
         }
 
         /// <summary>
-        /// Paints a building for its owner: the roof and the belts between its floors in the owner's colour
-        /// (terracotta and cream when it has none) over white walls. A model with no roof (the plot) wears the colour
-        /// on its walls instead, lightened a little. The other parts keep their colours.
+        /// Paints a building for its owner: the roof in the owner's colour (terracotta when it has none) over ivory
+        /// walls. A model with no roof (the plot) wears the colour on its walls instead, lightened a little. The other
+        /// parts keep their colours.
         /// </summary>
         public static void PaintOwner(GameObject building, Color? owner)
         {
@@ -208,7 +206,6 @@ namespace Lazpoly.Presentation.Models
             foreach (Renderer part in parts)
             {
                 if (part.name == Slots[RoofSlot]) ModelParts.Paint(part.gameObject, RoofColor(owner), SlotSmoothness[RoofSlot]);
-                else if (part.name == Slots[BeltSlot]) ModelParts.Paint(part.gameObject, BeltColor(owner), SlotSmoothness[BeltSlot]);
                 else if (part.name == Slots[WallSlot]) ModelParts.Paint(part.gameObject, roofed ? WallColor : PlotColor(owner), SlotSmoothness[WallSlot]);
             }
         }

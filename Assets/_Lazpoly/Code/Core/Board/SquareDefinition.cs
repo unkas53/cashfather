@@ -12,6 +12,20 @@ namespace Lazpoly.Core.Board
         /// </summary>
         public const int MaxBuildingLevel = 4;
 
+        /// <summary>
+        /// Building costs the hotel takes. With the fourth house gone the hotel stands for both of the old table's last
+        /// steps, so reaching it costs what it always did and its rent still follows the owner's rule (Faz 27: a level's
+        /// rent is 40% of what the land and its buildings cost).
+        /// </summary>
+        public const int HotelBuildingUnits = 2;
+
+        /// <summary>How many building costs a square standing at <paramref name="level"/> has taken: one a house, <see cref="HotelBuildingUnits"/> the hotel.</summary>
+        public static int BuildingUnits(int level)
+        {
+            if (level <= 0) return 0;
+            return level < MaxBuildingLevel ? level : MaxBuildingLevel - 1 + HotelBuildingUnits;
+        }
+
         private static readonly int[] NoRents = new int[0];
         private readonly int[] _developedRents;
 
@@ -73,8 +87,29 @@ namespace Lazpoly.Core.Board
         /// </summary>
         public int Fee { get; }
 
-        /// <summary>Price of one building level (house or hotel). 0 means the property cannot be developed.</summary>
+        /// <summary>Price of one house; the hotel takes <see cref="HotelBuildingUnits"/> of it. 0 means the property cannot be developed.</summary>
         public int BuildingCost { get; }
+
+        /// <summary>What the buildings of a square standing at <paramref name="level"/> cost in all.</summary>
+        public int BuildingsCost(int level) => BuildingUnits(level) * BuildingCost;
+
+        /// <summary>What raising the square from <paramref name="fromLevel"/> to <paramref name="toLevel"/> costs; 0 when that is no rise.</summary>
+        public int CostToBuild(int fromLevel, int toLevel) => Math.Max(0, BuildingsCost(toLevel) - BuildingsCost(fromLevel));
+
+        /// <summary>
+        /// How many of the <paramref name="allowed"/> levels above <paramref name="level"/> the <paramref name="money"/> pays for,
+        /// counted from the first: the houses one cost each, the hotel its own.
+        /// </summary>
+        public int AffordableLevels(int level, int allowed, long money)
+        {
+            if (!IsDevelopable) return 0;
+            int levels = 0;
+            while (levels < allowed && level + levels < MaxBuildingLevel && CostToBuild(level, level + levels + 1) <= money) levels++;
+            return levels;
+        }
+
+        /// <summary>What the hotel costs on a square with its three houses.</summary>
+        public int HotelCost => CostToBuild(MaxBuildingLevel - 1, MaxBuildingLevel);
 
         public bool IsDevelopable => BuildingCost > 0;
 

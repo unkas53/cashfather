@@ -103,9 +103,8 @@ namespace Lazpoly.App.AI
 
             // The houses it would put up afterwards go up with the purchase, in one step and one payment, like a person's
             // pick on the city card.
-            int cost = view.Board[square].BuildingCost;
             int spare = view.Me.Money - price - view.Reserve * Profile.BuildReserveMultiplier;
-            int levels = cost > 0 && spare > 0 ? Math.Min(GameRules.BuildableAfterPurchase(view.Board, view.Me, square), spare / cost) : 0;
+            int levels = view.Board[square].AffordableLevels(0, GameRules.BuildableAfterPurchase(view.Board, view.Me, square), spare);
             var withHouses = new BuyPropertyCommand(PlayerId, levels);
             return levels > 0 && view.Legal(withHouses) ? withHouses : buy;
         }
@@ -241,8 +240,7 @@ namespace Lazpoly.App.AI
         private GameCommand Build(View view, int spare)
         {
             int square = view.Me.Position;
-            int cost = view.Board[square].BuildingCost;
-            int levels = cost > 0 ? Math.Min(GameRules.BuildableNow(view.Board, view.State, view.Me, square), spare / cost) : 0;
+            int levels = view.Board[square].AffordableLevels(view.State.GetBuildingLevel(square), GameRules.BuildableNow(view.Board, view.State, view.Me, square), spare);
             if (levels < 1) return null;
             var build = new BuildCommand(PlayerId, square, levels);
             if (!view.Legal(build)) return null;

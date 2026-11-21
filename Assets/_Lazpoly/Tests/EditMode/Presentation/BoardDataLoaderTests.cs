@@ -109,12 +109,14 @@ namespace Lazpoly.Presentation.Tests
                 Assert.AreEqual(0, square.Price % 10000, $"{square.Name}: a tidy price");
                 Assert.That(square.BuildingCost, Is.InRange(square.Price / 3, square.Price), $"{square.Name}: a house costs a share of the town");
                 // The owner's rule (Faz 27): a level's rent is 40% of what the land and its buildings cost, to the nearest 5K.
+                // The hotel counts as two buildings since the fourth house went (2026-11-21), so its rent is what it was.
+                Assert.AreEqual(2 * square.BuildingCost, square.HotelCost, $"{square.Name}: the hotel costs two houses");
                 Assert.AreEqual(RentForCost(square.Price), square.BaseRent, $"{square.Name}: the land's rent");
                 int rent = square.BaseRent;
                 for (int level = 1; level <= square.DevelopedRents.Count; level++)
                 {
                     int next = square.DevelopedRents[level - 1];
-                    Assert.AreEqual(RentForCost(square.Price + level * square.BuildingCost), next, $"{square.Name}: the rent at level {level}");
+                    Assert.AreEqual(RentForCost(square.Price + square.BuildingsCost(level)), next, $"{square.Name}: the rent at level {level}");
                     Assert.Greater(next, rent, $"{square.Name}: every building raises the rent");
                     rent = next;
                 }

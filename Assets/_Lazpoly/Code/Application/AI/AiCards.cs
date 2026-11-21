@@ -153,7 +153,7 @@ namespace Lazpoly.App.AI
 
                 case CardKind.Renewal:
                 {
-                    var affordable = targets.FindAll(square => me.Money - GameRules.RenewalCost(board, definition, square) >= reserve);
+                    var affordable = targets.FindAll(square => me.Money - GameRules.RenewalCost(board, state, definition, square) >= reserve);
                     return Best(affordable, square => GameRules.CalculateRent(board, rules, state, square), me, card);
                 }
 
@@ -223,7 +223,7 @@ namespace Lazpoly.App.AI
         }
 
         private static long Worth(BoardDefinition board, GameState state, int square) =>
-            board[square].Price + (long)state.GetBuildingLevel(square) * board[square].BuildingCost;
+            board[square].Price + (long)board[square].BuildingsCost(state.GetBuildingLevel(square));
 
         /// <summary>Whether the town is part of a colour group its owner holds whole.</summary>
         private static bool BreaksGroup(BoardDefinition board, GameState state, int square) =>

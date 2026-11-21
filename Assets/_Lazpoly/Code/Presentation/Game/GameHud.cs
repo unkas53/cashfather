@@ -1508,8 +1508,7 @@ namespace Lazpoly.Presentation.Game
             BoardDefinition board = _controller.Session.Board;
             int allowed = GameRules.BuildableNow(board, state, player, player.Position);
             if (allowed == 0) return 0;
-            int cost = board[player.Position].BuildingCost;
-            return Math.Min(allowed, cost > 0 ? player.Money / cost : 0);
+            return board[player.Position].AffordableLevels(state.GetBuildingLevel(player.Position), allowed, player.Money);
         }
 
         /// <summary>Opens the building card for the current visit again, after "not now".</summary>
@@ -1669,7 +1668,7 @@ namespace Lazpoly.Presentation.Game
             ui.Label(F($"{town} şehri {owner} oyuncusunun. Kirayı ödedin; şehri binalarıyla birlikte devralabilirsin."), UiTextStyle.Body);
             UiBuilder card = ui.Card();
             Line(card, L("Arsa"), M(board[square].Price));
-            if (level > 0) Line(card, F($"Evler ({level})"), M(level * board[square].BuildingCost));
+            if (level > 0) Line(card, level >= SquareDefinition.MaxBuildingLevel ? L("Otel") : F($"Evler ({level})"), M(board[square].BuildingsCost(level)));
             Line(card, F($"Devir bedeli (%{GameRules.TakeoverPercent})"), M(price), strong: true);
             Line(card, L("Kalan paran"), M(player.Money - price));
             ui.Label(F($"Bedel {owner} oyuncusuna ödenir."), UiTextStyle.Small, UiTheme.Muted);

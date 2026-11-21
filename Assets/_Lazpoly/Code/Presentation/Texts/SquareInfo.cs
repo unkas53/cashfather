@@ -189,6 +189,7 @@ namespace Lazpoly.Presentation.Texts
                 }
 
                 info.Rows.Add(new SquareInfoRow(L("Ev maliyeti"), M(square.BuildingCost)));
+                info.Rows.Add(new SquareInfoRow(L("Otel maliyeti"), M(square.HotelCost)));
             }
 
             info.Rows.Add(new SquareInfoRow(L("Satış değeri"), M(square.SaleValue)));

@@ -93,12 +93,15 @@ namespace Lazpoly.Core.Engine
                     break;
                 case BuildCommand c:
                     // The levels picked go up at once, paid in one payment.
-                    Emit(new MoneyChangedEvent(player.Id, -Board[c.SquareIndex].BuildingCost * c.Levels, MoneyReason.Building));
-                    Emit(new BuildingLevelChangedEvent(c.SquareIndex, State.GetBuildingLevel(c.SquareIndex) + c.Levels));
+                    int built = State.GetBuildingLevel(c.SquareIndex);
+                    Emit(new MoneyChangedEvent(player.Id, -Board[c.SquareIndex].CostToBuild(built, built + c.Levels), MoneyReason.Building));
+                    Emit(new BuildingLevelChangedEvent(c.SquareIndex, built + c.Levels));
                     break;
                 case SellBuildingCommand c:
-                    Emit(new BuildingLevelChangedEvent(c.SquareIndex, State.GetBuildingLevel(c.SquareIndex) - 1));
-                    Emit(new MoneyChangedEvent(player.Id, Rules.SellbackValue(Board[c.SquareIndex].BuildingCost), MoneyReason.BuildingSale));
+                    // A hotel sold comes down to the three houses and pays back what it took to put up.
+                    int sold = State.GetBuildingLevel(c.SquareIndex);
+                    Emit(new BuildingLevelChangedEvent(c.SquareIndex, sold - 1));
+                    Emit(new MoneyChangedEvent(player.Id, GameRules.BuildingsSaleValue(Board, Rules, c.SquareIndex, sold) - GameRules.BuildingsSaleValue(Board, Rules, c.SquareIndex, sold - 1), MoneyReason.BuildingSale));
                     break;
                 case SellPropertyCommand c:
                     // Buildings come down first, then the town goes back to the bank; one payment covers all of it.
@@ -528,7 +531,7 @@ namespace Lazpoly.Core.Engine
                     break;
 
                 case CardKind.Renewal:
-                    Emit(new MoneyChangedEvent(player.Id, -GameRules.RenewalCost(Board, card, target), MoneyReason.Building));
+                    Emit(new MoneyChangedEvent(player.Id, -GameRules.RenewalCost(Board, State, card, target), MoneyReason.Building));
                     Emit(new BuildingLevelChangedEvent(target, State.GetBuildingLevel(target) + 1));
                     break;
 
@@ -723,7 +726,7 @@ namespace Lazpoly.Core.Engine
                 int level = State.GetBuildingLevel(square);
                 if (level > 0)
                 {
-                    buildings += level * Rules.SellbackValue(Board[square].BuildingCost);
+                    buildings += GameRules.BuildingsSaleValue(Board, Rules, square, level);
                     Emit(new BuildingLevelChangedEvent(square, 0));
                 }
 

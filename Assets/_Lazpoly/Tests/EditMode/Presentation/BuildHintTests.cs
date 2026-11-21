@@ -69,6 +69,13 @@ namespace Lazpoly.Presentation.Tests
             Own(state, 1, 1);
             Arrive(state, 1, 1);
             Assert.AreEqual("Ev için 50 gerekli, paran yetmiyor.", BuildHint.For(Board, state, 1, 1));
+
+            GameState almost = State(money: 99);
+            Own(almost, 1, 1);
+            Arrive(almost, 1, 1, passedStart: true);
+            for (int level = 1; level <= 3; level++) GameStateReducer.Apply(almost, new BuildingLevelChangedEvent(1, level));
+            Arrive(almost, 1, 1);
+            Assert.AreEqual("Otel için 100 gerekli, paran yetmiyor.", BuildHint.For(Board, almost, 1, 1), "the hotel is two building costs");
         }
 
         [Test]

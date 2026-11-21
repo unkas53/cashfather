@@ -495,8 +495,12 @@ namespace Lazpoly.Core.Tests
                 s.Owners[A1] = Alice;
                 s.BuildingLevels[A1] = GameRules.MaxHouses;
             });
+            int hotelCost = GameRules.RenewalCost(hotel.Board, hotel.State, hotel.Board.Cards[Renewal], A1);
+            Assert.AreEqual(hotel.Board[A1].HotelCost / 2, hotelCost, "half of the hotel's own price, which is two building costs");
+            int before = Player(hotel, Alice).Money;
             Accept(hotel, new PlayCardCommand(Alice, Renewal, A1));
-            Assert.AreEqual(SquareDefinition.MaxBuildingLevel, hotel.State.GetBuildingLevel(A1), "four houses take the hotel");
+            Assert.AreEqual(SquareDefinition.MaxBuildingLevel, hotel.State.GetBuildingLevel(A1), "three houses take the hotel");
+            Assert.AreEqual(before - hotelCost, Player(hotel, Alice).Money);
             Assert.AreEqual(RejectionReason.InvalidTarget, Reason(AliceHolds(Renewal), new PlayCardCommand(Alice, Renewal, ResortSquare)));
         }
 

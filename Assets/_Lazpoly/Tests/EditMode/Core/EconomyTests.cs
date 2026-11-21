@@ -239,6 +239,72 @@ namespace Lazpoly.Core.Tests
         }
 
         [Test]
+        public void TheHotelTakesTwoBuildingCostsAndIsWorthThem()
+        {
+            // With the fourth house gone the hotel stands for the old table's last two steps: it costs two building
+            // costs, so the way to it costs what it always did and the owner's rent rule (Faz 27) holds.
+            var engine = NewGame(money: 5000);
+            Give(engine, A1, Alice);
+            Stand(engine, Alice, A1, passedStart: true);
+            Accept(engine, new BuildCommand(Alice, A1, 3));
+            Assert.AreEqual(5000 - 150, Money(engine, Alice), "Each house is one building cost.");
+            Assert.AreEqual(100, engine.Board[A1].HotelCost);
+            Assert.AreEqual(60 + 150, GameRules.PropertyValue(engine.Board, engine.State, Alice));
+
+            Stand(engine, Alice, Solo);
+            Stand(engine, Alice, A1);
+            int before = Money(engine, Alice);
+            Accept(engine, new BuildCommand(Alice, A1));
+            Assert.AreEqual(SquareDefinition.MaxBuildingLevel, engine.State.GetBuildingLevel(A1));
+            Assert.AreEqual(before - 100, Money(engine, Alice), "The hotel is two building costs in one payment.");
+            Assert.AreEqual(60 + 250, GameRules.PropertyValue(engine.Board, engine.State, Alice), "worth what was put into it");
+            Assert.AreEqual(60 + 250, GameRules.TakeoverWorth(engine.Board, engine.State, A1));
+            Assert.AreEqual(60 + 5 * 25, GameRules.PropertySaleProceeds(engine.Board, engine.Rules, engine.State, A1));
+
+            before = Money(engine, Alice);
+            Accept(engine, new SellBuildingCommand(Alice, A1));
+            Assert.AreEqual(3, engine.State.GetBuildingLevel(A1), "A hotel sold leaves the three houses.");
+            Assert.AreEqual(before + 50, Money(engine, Alice), "and pays back half of its two building costs.");
+            Accept(engine, new SellBuildingCommand(Alice, A1));
+            Assert.AreEqual(before + 75, Money(engine, Alice), "A house pays back half of one.");
+        }
+
+        [Test]
+        public void TheHotelNeedsTheMoneyForBothOfItsBuildingCosts()
+        {
+            var engine = NewGame(money: 5000);
+            Give(engine, A1, Alice);
+            Stand(engine, Alice, A1, passedStart: true);
+            Accept(engine, new BuildCommand(Alice, A1, 3));
+            Stand(engine, Alice, Solo);
+            Stand(engine, Alice, A1);
+            GameStateReducer.Apply(engine.State, new MoneyChangedEvent(Alice, 99 - Money(engine, Alice), MoneyReason.Building));
+            Assert.AreEqual(RejectionReason.InsufficientFunds, Reason(engine, new BuildCommand(Alice, A1)), "One building cost is not enough.");
+            GameStateReducer.Apply(engine.State, new MoneyChangedEvent(Alice, 1, MoneyReason.Building));
+            Accept(engine, new BuildCommand(Alice, A1));
+            Assert.AreEqual(0, Money(engine, Alice));
+        }
+
+        [Test]
+        public void BuildingCostsAreCountedInUnits()
+        {
+            SquareDefinition town = Board()[A1];
+            Assert.AreEqual(0, SquareDefinition.BuildingUnits(0));
+            Assert.AreEqual(3, SquareDefinition.BuildingUnits(3));
+            Assert.AreEqual(5, SquareDefinition.BuildingUnits(SquareDefinition.MaxBuildingLevel), "three houses and the hotel's two");
+            Assert.AreEqual(150, town.BuildingsCost(3));
+            Assert.AreEqual(250, town.BuildingsCost(4));
+            Assert.AreEqual(200, town.CostToBuild(1, 4));
+            Assert.AreEqual(0, town.CostToBuild(3, 2), "coming down costs nothing");
+            Assert.AreEqual(2, town.AffordableLevels(0, 3, 149), "as many houses as the money pays for");
+            Assert.AreEqual(3, town.AffordableLevels(0, 3, 5000), "never more than allowed");
+            Assert.AreEqual(0, town.AffordableLevels(3, 1, 99), "the hotel needs both of its building costs");
+            Assert.AreEqual(1, town.AffordableLevels(3, 1, 100));
+            Assert.AreEqual(0, town.AffordableLevels(4, 1, 5000), "nothing above the hotel");
+            Assert.AreEqual(0, Board()[Solo].AffordableLevels(0, 3, 5000), "a square that takes no buildings");
+        }
+
+        [Test]
         public void SellingBuildingsIsPerTown()
         {
             var engine = NewGame(money: 5000);

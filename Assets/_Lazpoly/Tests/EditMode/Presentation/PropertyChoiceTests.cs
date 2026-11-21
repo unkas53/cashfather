@@ -170,7 +170,7 @@ namespace Lazpoly.Presentation.Tests
             Assert.IsNull(choice.Locked(4));
             Assert.IsTrue(choice.CanPick(4));
             Assert.AreEqual(4, choice.DefaultPick);
-            Assert.AreEqual(50, choice.CostOf(4));
+            Assert.AreEqual(100, choice.CostOf(4), "the hotel is two building costs");
             Assert.AreEqual(400, choice.RentAt(choice.Level), "the rent now");
             Assert.AreEqual(700, choice.RentAt(4), "the rent with the hotel");
 
@@ -189,10 +189,10 @@ namespace Lazpoly.Presentation.Tests
             Assert.IsTrue(staged.OffersHotel);
             Assert.AreEqual(3, staged.Level);
             Assert.IsTrue(staged.CanPick(4));
-            Assert.AreEqual(50, staged.CostOf(4));
+            Assert.AreEqual(100, staged.CostOf(4));
             Assert.AreEqual(0, state.GetBuildingLevel(1), "the table itself is not touched");
 
-            PropertyChoice poor = PropertyChoice.At(Board, Rules, State(money: 20), State(money: 20).FindPlayer(1), 1, false, 3, 1);
+            PropertyChoice poor = PropertyChoice.At(Board, Rules, State(money: 99), State(money: 99).FindPlayer(1), 1, false, 3, 1);
             Assert.IsTrue(poor.OffersHotel);
             Assert.IsFalse(poor.CanPick(4), "the card still opens when staged; its button stays shut without the money");
             Assert.AreEqual("Para yetmez", poor.Locked(4));

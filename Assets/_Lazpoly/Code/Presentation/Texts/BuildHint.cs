@@ -33,11 +33,12 @@ namespace Lazpoly.Presentation.Texts
             if (player.Laps == 0 && level >= GameRules.FirstLapHouseLimit)
                 return F($"Başlangıçtan geçene kadar her şehre tek ev; sonra {GameRules.MaxHouses} eve kadar.");
 
-            if (player.Money < square.BuildingCost)
+            int cost = square.CostToBuild(level, level + 1);
+            if (player.Money < cost)
             {
                 return GameRules.NextIsHotel(state, squareIndex)
-                    ? F($"Otel için {square.BuildingCost} gerekli, paran yetmiyor.")
-                    : F($"Ev için {square.BuildingCost} gerekli, paran yetmiyor.");
+                    ? F($"Otel için {cost} gerekli, paran yetmiyor.")
+                    : F($"Ev için {cost} gerekli, paran yetmiyor.");
             }
 
             return null;

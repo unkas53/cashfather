@@ -319,7 +319,7 @@ namespace Lazpoly.Core.Engine
                             return state.HasShield(target) ? RejectionReason.InvalidTarget : RejectionReason.None;
                         case CardKind.Renewal:
                             if (!CanRenew(board, state, player, target)) return RejectionReason.CannotBuild;
-                            return player.Money >= RenewalCost(board, card, target) ? RejectionReason.None : RejectionReason.InsufficientFunds;
+                            return player.Money >= RenewalCost(board, state, card, target) ? RejectionReason.None : RejectionReason.InsufficientFunds;
                         default:
                             return RejectionReason.None;
                     }
@@ -386,8 +386,11 @@ namespace Lazpoly.Core.Engine
             (int)((long)board[squareIndex].Price * (100 - card.Amount) / 100);
 
         /// <summary>What a renewal card makes the next building level of a town cost: the card's per cent of its cost.</summary>
-        public static int RenewalCost(BoardDefinition board, CardDefinition card, int squareIndex) =>
-            (int)((long)board[squareIndex].BuildingCost * card.Amount / 100);
+        public static int RenewalCost(BoardDefinition board, GameState state, CardDefinition card, int squareIndex)
+        {
+            int level = state.GetBuildingLevel(squareIndex);
+            return (int)((long)board[squareIndex].CostToBuild(level, level + 1) * card.Amount / 100);
+        }
 
         /// <summary>
         /// Whether a renewal card may add a level to the player's town wherever they stand: the usual limits hold (one house
@@ -591,7 +594,7 @@ namespace Lazpoly.Core.Engine
             {
                 if (state.GetOwner(i) != playerId) continue;
                 total += board[i].Price;
-                total += state.GetBuildingLevel(i) * board[i].BuildingCost;
+                total += board[i].BuildingsCost(state.GetBuildingLevel(i));
             }
 
             return total;
@@ -667,7 +670,11 @@ namespace Lazpoly.Core.Engine
 
         /// <summary>What the bank pays for a property sold back with everything on it: its whole price plus each building at its sell-back value.</summary>
         public static int PropertySaleProceeds(BoardDefinition board, RulesConfig rules, GameState state, int squareIndex) =>
-            board[squareIndex].SaleValue + state.GetBuildingLevel(squareIndex) * rules.SellbackValue(board[squareIndex].BuildingCost);
+            board[squareIndex].SaleValue + BuildingsSaleValue(board, rules, squareIndex, state.GetBuildingLevel(squareIndex));
+
+        /// <summary>What the bank pays for the buildings of a square standing at <paramref name="level"/>: each building cost put into them at its sell-back value.</summary>
+        public static int BuildingsSaleValue(BoardDefinition board, RulesConfig rules, int squareIndex, int level) =>
+            SquareDefinition.BuildingUnits(level) * rules.SellbackValue(board[squareIndex].BuildingCost);
 
         /// <summary>Houses a square may carry; the level above is the hotel.</summary>
         public const int MaxHouses = SquareDefinition.MaxBuildingLevel - 1;
@@ -686,7 +693,8 @@ namespace Lazpoly.Core.Engine
             RejectionReason owned = RequireOwnProperty(board, state, player, squareIndex);
             if (owned != RejectionReason.None) return owned;
             if (levels < 1 || levels > BuildableNow(board, state, player, squareIndex)) return RejectionReason.CannotBuild;
-            return player.Money >= (long)board[squareIndex].BuildingCost * levels ? RejectionReason.None : RejectionReason.InsufficientFunds;
+            int level = state.GetBuildingLevel(squareIndex);
+            return player.Money >= board[squareIndex].CostToBuild(level, level + levels) ? RejectionReason.None : RejectionReason.InsufficientFunds;
         }
 
         /// <summary>
@@ -725,7 +733,7 @@ namespace Lazpoly.Core.Engine
 
         /// <summary>What buying a square with <paramref name="levels"/> building levels on it costs in all: its price and the buildings.</summary>
         public static long PurchaseCost(BoardDefinition board, int squareIndex, int levels) =>
-            (long)board[squareIndex].Price + (long)board[squareIndex].BuildingCost * Math.Max(0, levels);
+            (long)board[squareIndex].Price + board[squareIndex].BuildingsCost(levels);
 
         /// <summary>True when the next building on this square would be the hotel.</summary>
         public static bool NextIsHotel(GameState state, int squareIndex) => state.GetBuildingLevel(squareIndex) == MaxHouses;

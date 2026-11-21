@@ -336,7 +336,7 @@ namespace Lazpoly.Presentation.Game
             string note = chosen && definition.IsAttack && state.HasShield(picked) ? F($"{town}: koruma kalkanı var. Saldırın durur, kalkan kalkar.") : null;
             Color ribbon = Color.Lerp(CardArt.ToneColor(CardArt.ToneFor(definition.Kind)), Color.white, RibbonLift);
             return new BoardPick(CardPlay.Name(board, card), CardArt.Family(definition.Kind) ?? L("Kart"), ribbon, AimHint(definition.Aim),
-                town, note, chosen ? PlayLabel(board, definition, picked) : L("Oyna"), L("Vazgeç"));
+                town, note, chosen ? PlayLabel(board, state, definition, picked) : L("Oyna"), L("Vazgeç"));
         }
 
         private static string AimHint(CardTarget aim)
@@ -351,13 +351,13 @@ namespace Lazpoly.Presentation.Game
         }
 
         /// <summary>The play button for a picked square: "Paris'e oyna", with the price where the card costs money.</summary>
-        private static string PlayLabel(BoardDefinition board, CardDefinition card, int square)
+        private static string PlayLabel(BoardDefinition board, GameState state, CardDefinition card, int square)
         {
             string town = L(board[square].Name);
             switch (card.Kind)
             {
                 case CardKind.LandDeal: return F($"{town} al ({M(GameRules.LandDealCost(board, card, square))})");
-                case CardKind.Renewal: return F($"{town} için bina kur ({M(GameRules.RenewalCost(board, card, square))})");
+                case CardKind.Renewal: return F($"{town} için bina kur ({M(GameRules.RenewalCost(board, state, card, square))})");
                 case CardKind.Chauffeur: return F($"{town} karesine git");
                 default: return F($"Oyna: {town}");
             }

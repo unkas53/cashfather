@@ -19,10 +19,12 @@ namespace Lazpoly.Presentation.Game
         private readonly int _baseRent;
         private readonly IReadOnlyList<int> _developedRents;
         private readonly int _fullGroupMultiplier;
+        private readonly SquareDefinition _square;
 
-        private PropertyChoice(int squareIndex, bool buying, int level, int allowed, int price, int buildingCost, int money, int laps,
+        private PropertyChoice(SquareDefinition square, int squareIndex, bool buying, int level, int allowed, int price, int buildingCost, int money, int laps,
             bool developable, bool fullGroup, int baseRent, IReadOnlyList<int> developedRents, int fullGroupMultiplier)
         {
+            _square = square;
             SquareIndex = squareIndex;
             Buying = buying;
             Level = level;
@@ -37,7 +39,7 @@ namespace Lazpoly.Presentation.Game
             _developedRents = developedRents;
             _fullGroupMultiplier = fullGroupMultiplier;
             int budget = money - price;
-            Most = allowed > 0 && buildingCost > 0 && budget >= 0 ? Math.Min(allowed, budget / buildingCost) : 0;
+            Most = allowed > 0 && budget >= 0 ? square.AffordableLevels(level, allowed, budget) : 0;
         }
 
         /// <summary>
@@ -70,11 +72,11 @@ namespace Lazpoly.Presentation.Game
             {
                 // A resort's rent is its base times the resorts its owner holds, this one counted when buying it.
                 int held = GameRules.ResortsOwned(board, state, player.Id) + (buying && state.GetOwner(squareIndex) != player.Id ? 1 : 0);
-                return new PropertyChoice(squareIndex, buying, level, 0, buying ? square.Price : 0, 0, player.Money, player.Laps,
+                return new PropertyChoice(square, squareIndex, buying, level, 0, buying ? square.Price : 0, 0, player.Money, player.Laps,
                     false, false, GameRules.ResortRent(square.BaseRent, Math.Max(1, held)), square.DevelopedRents, 1) { Resort = true, ResortStage = Math.Max(1, held) };
             }
 
-            return new PropertyChoice(squareIndex, buying, level, allowed, buying ? square.Price : 0, square.BuildingCost, player.Money, player.Laps,
+            return new PropertyChoice(square, squareIndex, buying, level, allowed, buying ? square.Price : 0, square.BuildingCost, player.Money, player.Laps,
                 square.IsDevelopable, OwnsGroupWith(board, state, player.Id, square, buying ? squareIndex : -1), square.BaseRent, square.DevelopedRents,
                 rules?.FullGroupRentMultiplier ?? 1);
         }
@@ -145,8 +147,11 @@ namespace Lazpoly.Presentation.Game
 
         public int Clamp(int pick) => Math.Max(Level, Math.Min(Top, pick));
 
-        /// <summary>The whole price of standing at <paramref name="pick"/>: the land if buying, plus each building above the current level.</summary>
-        public int CostOf(int pick) => Price + Math.Max(0, pick - Level) * BuildingCost;
+        /// <summary>
+        /// The whole price of standing at <paramref name="pick"/>: the land if buying, plus each building above the current
+        /// level (a house one building cost, the hotel its own).
+        /// </summary>
+        public int CostOf(int pick) => Price + _square.CostToBuild(Level, pick);
 
         /// <summary>Rent a visitor would pay at <paramref name="level"/>; every level earns more once the group is complete.</summary>
         public int RentAt(int level)

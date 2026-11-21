@@ -57,7 +57,7 @@ namespace Lazpoly.Presentation.Models
             new Color(0.26f, 0.40f, 0.56f), // Glass (the whole of a window's recess): deep blue.
             new Color(0.36f, 0.23f, 0.16f), // Doors and the sign's posts: dark wood.
             new Color(0.71f, 0.32f, 0.23f), // Roofs, chimneys, canopies, the slabs of flat roofs: terracotta until owned.
-            new Color(0.90f, 0.88f, 0.83f), // The slab a building stands on, its kerbs and steps, balcony slabs: pale cream stone.
+            new Color(0.87f, 0.85f, 0.81f), // The slab a building stands on, its kerbs and steps, balcony slabs: pale cream stone (lighter, its lit top burns out and its kerb is lost).
             new Color(0.83f, 0.65f, 0.23f), // Handles and the hotel's letters: brass.
             new Color(0.97f, 0.95f, 0.91f), // The frames of windows and doors, and the bars across the panes: white.
             new Color(0.97f, 0.95f, 0.91f), // The belts between the floors: white until owned.

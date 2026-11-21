@@ -185,7 +185,7 @@ namespace Lazpoly.Presentation.Tests
                 Assert.Greater(glass.grayscale, 0.3f, "the glass is black");
                 Assert.Greater(glass.b, glass.r + 0.2f, "the glass is blue");
                 Assert.Greater(Mathf.Min(ground.r, ground.g, ground.b), 0.8f, "the slab is light: it stands off the warm tiles");
-                Assert.LessOrEqual(ground.maxColorComponent, 0.92f, "the slab burns out in the table's light");
+                Assert.LessOrEqual(ground.maxColorComponent, 0.88f, "the slab's lit top burns out in the table's light (it did at 0.90)");
                 Assert.Greater(ground.r - ground.b, 0.05f, "the slab is warm stone, not concrete grey");
                 Assert.AreEqual("Glass", BuildingModels.Slots[BuildingModels.GlassSlot]);
                 Assert.AreEqual("Roof", BuildingModels.Slots[BuildingModels.RoofSlot]);

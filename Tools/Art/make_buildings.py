@@ -5,7 +5,7 @@ The Blender file holds six models, each an empty (Plot_00, House_01..House_04, H
 child meshes: bodies, window and door openings (jambs, lintels, sills, mullions...), door panels, roofs, balconies,
 the foundation and kerbs, the plot's sale sign. They share one white material. The game paints them:
 the roofs in the owner's colour (the owner's wish, 2026-11-21) and the rest in fixed colours that suit the table
-(ivory walls, white frames and belts, slate blue glass, a sandstone slab), so this script sorts every part
+(ivory walls, white frames, deep blue glass, a pale stone slab, the belts in the roof's colour), so this script sorts every part
 into a slot
 (SLOT_RULES) and writes one mesh per slot. The window panes are no parts of their own: they are the faces of a
 body inside a window opening (the back of the recess and its reveals), picked out as GLASS. The plot's sale sign is made SIGN_SCALE times larger

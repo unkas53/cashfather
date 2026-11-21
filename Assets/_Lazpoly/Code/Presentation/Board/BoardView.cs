@@ -1127,9 +1127,10 @@ namespace Lazpoly.Presentation.Tabletop
         }
 
         /// <summary>
-        /// A building's roof takes the owner's colour over light walls (the owner's wish, 2026-11-21), while its
-        /// doors, frames and glass keep their own (<see cref="BuildingModels.PaintOwner"/>); the drawn stand-ins do
-        /// the same. Unowned, each keeps its own colours.
+        /// A building's roof takes the owner's colour over light walls (the owner's wish, 2026-11-21), and the thin
+        /// belts between its floors with it, while its doors, frames and glass keep their own
+        /// (<see cref="BuildingModels.PaintOwner"/>); the drawn stand-ins wear it on their roofs. Unowned, each keeps
+        /// its own colours.
         /// </summary>
         private void PaintBuildings(int squareIndex)
         {
